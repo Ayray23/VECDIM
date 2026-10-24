@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "VECDIM Field",
+    "slug": "vecdim-field",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "VECDIM needs your location to attach GPS coordinates to field observations."
+        }
+      ]
+    ]
+  }
+}
