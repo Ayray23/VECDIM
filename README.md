@@ -12,7 +12,7 @@ Offline-first entomological field surveillance prototype for the VECDIM technica
 
 ## Development status
 
-Stage 1 — Mobile foundation implementation is complete pending final Android runtime/device sign-off.
+**Stage 2 — Validation and parity is in progress.** Stage 1 mobile implementation is complete pending final Android runtime/device sign-off.
 
 ### Stage 1 includes
 
@@ -29,7 +29,17 @@ Stage 1 — Mobile foundation implementation is complete pending final Android r
 - Multiple saved offline records
 - `pending_sync` local status for records awaiting the later sync stage
 
-Stage 1 does not include backend submission, server validation, synchronization, PostGIS, alerts or the dashboard. Those are later stages.
+### Stage 2 includes
+
+- Shared validation rule module based on the supplied R reference implementation
+- Device/server rule separation
+- WHO mortality edge-case tests
+- GPS accuracy boundary tests
+- LGA distance warning tests
+- Duplicate, future-date and field-consistency tests
+- Candidate-pack parity runner for all 1,525 rows and 11 R-output rules
+
+Stage 2 is not signed off until the candidate-pack parity test has been run locally and the result recorded. The candidate pack's synthetic data and expected output are not copied into this repository.
 
 ## Run the mobile app
 
@@ -42,6 +52,20 @@ npx expo start
 
 For Android, use Expo Go on a physical device or an Android emulator.
 
+## Run validation unit tests
+
+```bash
+node packages/validation/test-validation.mjs
+```
+
+## Run the full parity test
+
+```bash
+node scripts/parity-test.mjs /path/to/VECDIM_Candidate_Pack
+```
+
+The parity runner expects the original candidate pack locally because the synthetic data must not be shared or committed to this repository.
+
 ## Stage sign-off rule
 
-The stage is not merged into `main` until the Android runtime checklist in `docs/AUDIT_TRAIL.md` has been executed successfully. The required assessment check is to create three records offline, close/reopen the app, verify all three remain, recover a half-filled draft after restart, and verify the GPS accuracy and LGA warning/block behaviours.
+A stage is not merged into `main` until its automated tests and required runtime checklist have been executed successfully. Stage 1's required assessment check is to create three records offline, close/reopen the app, verify all three remain, recover a half-filled draft after restart, and verify the GPS accuracy and LGA warning/block behaviours.
