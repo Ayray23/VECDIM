@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import { calculateMortality, classifyMortality, haversineKm, validateRecord } from './index.js';
+
+const base = {
+  record_id: '00000000-0000-4000-8000-000000000001',
+  state: 'Osun',
+  lga: 'Ife Central',
+  ward: 'Ife Central Ward 1',
+  latitude: 7.47895,
+  longitude: 4.57504,
+  gps_accuracy_m: 6,
+  collection_date: '2026-10-08',
+  species: 'An. gambiae s.s.',
+  insecticide: 'Pirimiphos-methyl',
+  n_exposed: 100,
+  n_dead: 92,
+  larval_density: 12,
+  urban: 0,
+  irs_covered: 1,
+  itn_use_pct: 68.5,
+};
+
+const rules = (record, options = {}) => validateRecord(record, { scope: 'device', ...options }).map((item) => item.ruleId);
+
+assert.equal(calculateMortality(100, 89.9), 89.9);
+assert.equal(classifyMortality(89.9), 'Resistant');
+assert.equal(classifyMortality(90.0), 'Possible resistance');
+assert.equal(classifyMortality(97.9), 'Possible resistance');
+assert.equal(classifyMortality(98.0), 'Susceptible');
+
+assert.ok(Math.abs(haversineKm(7.48, 4.56, 7.77, 4.56) - 32.1) < 1);
+assert.ok(!rules(base).includes('GPS_far_from_lga'));
+
+assert.ok(rules({ ...base, gps_accuracy_m: 10 }).every((id) => id !== 'GPS_accuracy_poor' && id !== 'GPS_accuracy_unusable'));
+assert.ok(rules({ ...base, gps_accuracy_m: 10.1 }).includes('GPS_accuracy_poor'));
+assert.ok(rules({ ...base, gps_accuracy_m: 50 }).includes('GPS_accuracy_poor'));
+assert.ok(rules({ ...base, gps_accuracy_m: 50.1 }).includes('GPS_accuracy_unusable'));
+
+assert.ok(rules({ ...base, latitude: 0, longitude: 0 }).includes('GPS_zero_zero'));
+assert.ok(rules({ ...base, latitude: 3.9 }).includes('GPS_outside_nigeria'));
+assert.ok(rules({ ...base, latitude: 6.5, longitude: 3.2 }).includes('GPS_state_mismatch'));
+assert.ok(rules({ ...base, n_dead: 101 }).includes('n_dead_gt_n_exposed'));
+assert.ok(rules({ ...base, collection_date: '2026-10-09' }, { refDate: '2026-10-08' }).includes('future_date'));
+
+const farFromIfe = { ...base, state: 'Osun', lga: 'Ife Central', latitude: 7.77, longitude: 4.56 };
+assert.ok(rules(farFromIfe).includes('GPS_far_from_lga'));
+
+const duplicate = { ...base, record_id: '00000000-0000-4000-8000-000000000002' };
+assert.ok(rules(duplicate, { existingRecords: [base] }).includes('duplicate'));
+
+console.log('validation unit tests: PASS');
