@@ -65,17 +65,12 @@ function duplicateKey(record) {
   return [record.ward, record.collection_date ?? record.collectionDate, record.species, record.insecticide, record.n_exposed ?? record.exposed, record.n_dead ?? record.dead].join('|');
 }
 
-/**
- * Implements the rules in docs/validation_rules.md and R/helpers.R.
- * `scope` is `device` or `server`.
- * For device validation, server-only enrichment fields are intentionally ignored.
- */
+/** Implements the candidate-pack validation rules. */
 export function validateRecord(record, options = {}) {
   const scope = options.scope ?? 'device';
   const refDate = options.refDate ?? new Date().toISOString().slice(0, 10);
   const existingRecords = options.existingRecords ?? [];
   const flags = [];
-
   const lat = asNumber(record.latitude);
   const lon = asNumber(record.longitude);
   const accuracy = asNumber(record.gps_accuracy_m ?? record.gpsAccuracyM);
@@ -83,50 +78,33 @@ export function validateRecord(record, options = {}) {
   const dead = asNumber(record.n_dead ?? record.dead);
   const state = record.state;
   const lga = record.lga;
-
   const add = (ruleId, severity, field, message) => flags.push(flag(ruleId, severity, field, message));
 
-  // R parity: comparisons with missing values do not fire. The device adds a
-  // missing-GPS usability message because GPS is required by the form.
   if (lat !== null && lon !== null) {
-    if (lat < 4 || lat > 14 || lon < 2.5 || lon > 15) {
-      add('GPS_outside_nigeria', 'Block', 'latitude', 'The GPS point is outside Nigeria. Recapture the location.');
-    }
-    if (lat === 0 && lon === 0) {
-      add('GPS_zero_zero', 'Block', 'latitude', 'The GPS location is 0,0. Recapture the location.');
-    }
+    if (lat < 4 || lat > 14 || lon < 2.5 || lon > 15) add('GPS_outside_nigeria', 'Block', 'latitude', 'The GPS point is outside Nigeria. Recapture the location.');
+    if (lat === 0 && lon === 0) add('GPS_zero_zero', 'Block', 'latitude', 'The GPS location is 0,0. Recapture the location.');
   } else if (scope === 'device') {
     add('GPS_outside_nigeria', 'Block', 'latitude', 'Capture a valid GPS location before saving.');
   }
 
   const stateBounds = STATE_BOUNDS[state];
-  if (!stateBounds) {
-    add('GPS_state_mismatch', 'Block', 'state', 'Choose a valid pilot state before saving.');
-  } else if (lat !== null && lon !== null && (lat < stateBounds[0] || lat > stateBounds[1] || lon < stateBounds[2] || lon > stateBounds[3])) {
-    add('GPS_state_mismatch', 'Block', 'latitude', `The GPS point is outside ${state}. Check the state or recapture the location.`);
-  }
+  if (!stateBounds) add('GPS_state_mismatch', 'Block', 'state', 'Choose a valid pilot state before saving.');
+  else if (lat !== null && lon !== null && (lat < stateBounds[0] || lat > stateBounds[1] || lon < stateBounds[2] || lon > stateBounds[3])) add('GPS_state_mismatch', 'Block', 'latitude', `The GPS point is outside ${state}. Check the state or recapture the location.`);
 
   const lgaRef = LGA_REFERENCE[state]?.[lga];
   if (lat !== null && lon !== null && lgaRef) {
     const distance = haversineKm(lat, lon, lgaRef[0], lgaRef[1]);
-    if (distance > 25) {
-      add('GPS_far_from_lga', 'Warn', 'lga', `Your location is ${distance.toFixed(1)} km from ${lga}. Check the LGA or recapture the location.`);
-    }
+    if (distance > 25) add('GPS_far_from_lga', 'Warn', 'lga', `Your location is ${distance.toFixed(1)} km from ${lga}. Check the LGA or recapture the location.`);
   } else if (scope === 'server' && (!state || !lgaRef)) {
     add('GPS_far_from_lga', 'Warn', 'lga', 'The selected LGA is unknown, so the location cannot be checked against an LGA reference point.');
   }
 
   if (scope === 'device' || !missing(accuracy)) {
-    if (accuracy === null || accuracy > 50) {
-      add('GPS_accuracy_unusable', 'Block', 'gps_accuracy_m', 'GPS accuracy is unusable. Move to open sky and recapture the location.');
-    } else if (accuracy > 10) {
-      add('GPS_accuracy_poor', 'Warn', 'gps_accuracy_m', `GPS accuracy is ${Math.round(accuracy)} m. A fix of 10 m or better is preferred.`);
-    }
+    if (accuracy === null || accuracy > 50) add('GPS_accuracy_unusable', 'Block', 'gps_accuracy_m', 'GPS accuracy is unusable. Move to open sky and recapture the location.');
+    else if (accuracy > 10) add('GPS_accuracy_poor', 'Warn', 'gps_accuracy_m', `GPS accuracy is ${Math.round(accuracy)} m. A fix of 10 m or better is preferred.`);
   }
 
-  if (dead !== null && exposed !== null && dead > exposed) {
-    add('n_dead_gt_n_exposed', 'Block', 'n_dead', `n_dead (${dead}) is more than n_exposed (${exposed}). Correct the number of dead mosquitoes.`);
-  }
+  if (dead !== null && exposed !== null && dead > exposed) add('n_dead_gt_n_exposed', 'Block', 'n_dead', `n_dead (${dead}) is more than n_exposed (${exposed}). Correct the number of dead mosquitoes.`);
 
   if (scope === 'server') {
     const positivity = asNumber(record.slide_positivity_pct);
@@ -138,56 +116,32 @@ export function validateRecord(record, options = {}) {
   }
 
   const collectionDate = asDateString(record.collection_date ?? record.collectionDate);
-  if (collectionDate && collectionDate > refDate) {
-    add('future_date', 'Block', 'collection_date', `Collection date ${collectionDate} is later than the reference date ${refDate}. Choose a valid collection date.`);
-  }
+  if (collectionDate && collectionDate > refDate) add('future_date', 'Block', 'collection_date', `Collection date ${collectionDate} is later than the reference date ${refDate}. Choose a valid collection date.`);
 
   if (scope === 'device') {
     const required = [
-      ['state', state, 'Choose a state.'],
-      ['lga', lga, 'Choose an LGA.'],
-      ['ward', record.ward, 'Choose a ward.'],
-      ['species', record.species, 'Choose a mosquito species.'],
-      ['insecticide', record.insecticide, 'Choose an insecticide.'],
-      ['collection_date', collectionDate, 'Choose a collection date.'],
-      ['n_exposed', exposed, 'Enter the number of exposed mosquitoes.'],
-      ['n_dead', dead, 'Enter the number of dead mosquitoes.'],
-      ['larval_density', asNumber(record.larval_density ?? record.larvalDensity), 'Enter larval density.'],
-      ['urban', record.urban, 'Choose Urban or Rural.'],
-      ['irs_covered', record.irs_covered ?? record.irsCovered, 'Choose whether IRS covered the area.'],
+      ['state', state, 'Choose a state.'], ['lga', lga, 'Choose an LGA.'], ['ward', record.ward, 'Choose a ward.'],
+      ['species', record.species, 'Choose a mosquito species.'], ['insecticide', record.insecticide, 'Choose an insecticide.'],
+      ['collection_date', collectionDate, 'Choose a collection date.'], ['n_exposed', exposed, 'Enter the number of exposed mosquitoes.'],
+      ['n_dead', dead, 'Enter the number of dead mosquitoes.'], ['larval_density', asNumber(record.larval_density ?? record.larvalDensity), 'Enter larval density.'],
+      ['urban', record.urban, 'Choose Urban or Rural.'], ['irs_covered', record.irs_covered ?? record.irsCovered, 'Choose whether IRS covered the area.'],
       ['itn_use_pct', asNumber(record.itn_use_pct ?? record.itnUsePercent), 'Enter ITN use percentage.'],
     ];
-    for (const [field, value, message] of required) {
-      if (missing(value)) add('missing_core', 'Block', field, message);
-    }
-
-    if (exposed !== null && (!Number.isInteger(exposed) || exposed < 1 || exposed > 500)) {
-      add('n_exposed_range', 'Block', 'n_exposed', 'Exposed mosquitoes must be a whole number from 1 to 500.');
-    }
-    if (dead !== null && (!Number.isInteger(dead) || dead < 0)) {
-      add('n_dead_range', 'Block', 'n_dead', 'Dead mosquitoes must be a whole number of 0 or more.');
-    }
+    for (const [field, value, message] of required) if (missing(value)) add('missing_core', 'Block', field, message);
+    if (exposed !== null && (!Number.isInteger(exposed) || exposed < 1 || exposed > 500)) add('n_exposed_range', 'Block', 'n_exposed', 'Exposed mosquitoes must be a whole number from 1 to 500.');
+    if (dead !== null && (!Number.isInteger(dead) || dead < 0)) add('n_dead_range', 'Block', 'n_dead', 'Dead mosquitoes must be a whole number of 0 or more.');
     const larval = asNumber(record.larval_density ?? record.larvalDensity);
     if (larval !== null && (!Number.isInteger(larval) || larval < 0)) add('larval_density_range', 'Block', 'larval_density', 'Larval density must be a whole number of 0 or more.');
     const itn = asNumber(record.itn_use_pct ?? record.itnUsePercent);
     if (itn !== null && (itn < 0 || itn > 100)) add('itn_use_range', 'Block', 'itn_use_pct', 'ITN use must be a number from 0 to 100.');
   }
 
-  if (scope === 'server' && ['ndvi', 'rainfall_mm', 'itn_use_pct', 'species'].some((field) => missing(record[field]))) {
-    // Server enrichment fields may be absent on a new mobile submission.
-    // The API marks those records enrichment_pending; it does not reject them.
-    if (missing(record.itn_use_pct) || missing(record.species)) add('missing_core', 'Block', missing(record.species) ? 'species' : 'itn_use_pct', 'Required core field is missing.');
-  }
-
   const currentId = record.record_id ?? record.recordId;
   const duplicate = existingRecords
     .filter((item) => (item.record_id ?? item.recordId) !== currentId)
     .filter((item) => (item.status ?? '') !== 'rejected')
-    .sort((a, b) => String(a.record_id ?? a.recordId).localeCompare(String(b.record_id ?? b.recordId)))[0];
-  const key = duplicateKey(record);
-  if (duplicate && duplicateKey(duplicate) === key) {
-    add('duplicate', 'Warn', 'record_id', `A matching field record already exists (${duplicate.record_id ?? duplicate.recordId}). Check that this is intentional.`);
-  }
+    .find((item) => duplicateKey(item) === duplicateKey(record));
+  if (duplicate) add('duplicate', 'Warn', 'record_id', `A matching field record already exists (${duplicate.record_id ?? duplicate.recordId}). Check that this is intentional.`);
 
   return flags;
 }
