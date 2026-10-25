@@ -1,0 +1,25 @@
+name: VECDIM Mobile Stage 1
+
+on:
+  push:
+    branches:
+      - 'stage/1-mobile-foundation'
+  pull_request:
+    branches:
+      - 'stage/1-mobile-foundation'
+
+jobs:
+  android-bundle:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package.json
+      - run: npm install
+      - run: npx expo export --platform android
