@@ -21,6 +21,7 @@ const base = {
 };
 
 const rules = (record, options = {}) => validateRecord(record, { scope: 'device', ...options }).map((item) => item.ruleId);
+const serverRules = (record, options = {}) => validateRecord(record, { scope: 'server', refDate: '2026-10-08', ...options }).map((item) => item.ruleId);
 
 assert.equal(calculateMortality(100, 89.9), 89.9);
 assert.equal(classifyMortality(89.9), 'Resistant');
@@ -47,5 +48,18 @@ assert.ok(rules(farFromIfe).includes('GPS_far_from_lga'));
 
 const duplicate = { ...base, record_id: '00000000-0000-4000-8000-000000000002' };
 assert.ok(rules(duplicate, { existingRecords: [base] }).includes('duplicate'));
+assert.ok(!rules(base, { existingRecords: [base] }).includes('duplicate'));
+assert.ok(rules(duplicate, { existingRecords: [base, { ...base, ward: 'Other Ward' }] }).includes('duplicate'));
+
+// Server-only enrichment rules.
+assert.ok(serverRules({ ...base, slide_positivity_pct: 101 }).includes('positivity_out_range'));
+assert.ok(serverRules({ ...base, slide_positivity_pct: -0.1 }).includes('positivity_out_range'));
+assert.ok(serverRules({ ...base, temp_c: 9.9 }).includes('temp_implausible'));
+assert.ok(serverRules({ ...base, temp_c: 50.1 }).includes('temp_implausible'));
+assert.ok(serverRules({ ...base, rainfall_mm: -0.1 }).includes('rainfall_implausible'));
+assert.ok(serverRules({ ...base, rainfall_mm: 1500.1 }).includes('rainfall_implausible'));
+
+// Server validation does not require device-only enrichment fields to be present.
+assert.ok(!serverRules(base).includes('missing_core'));
 
 console.log('validation unit tests: PASS');
