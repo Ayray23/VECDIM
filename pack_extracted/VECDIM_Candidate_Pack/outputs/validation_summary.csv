@@ -1,0 +1,13 @@
+"rule","records_flagged"
+"GPS_outside_nigeria",12
+"GPS_zero_zero",8
+"GPS_state_mismatch",30
+"GPS_far_from_lga",30
+"n_dead_gt_n_exposed",18
+"positivity_out_range",10
+"future_date",10
+"temp_implausible",8
+"rainfall_implausible",6
+"duplicate",25
+"missing_core",115
+"ANY RULE (unique records)",222

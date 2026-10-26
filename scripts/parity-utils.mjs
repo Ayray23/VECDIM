@@ -99,7 +99,7 @@ export function compareParity({ inputRows, expectedRows, ruleIds, validateRow, i
     const id = inputHasId ? inputRow[idField] : null;
     const expectedEntry = inputHasId ? expectedById.get(id) : { row: expectedRows[index], rowNumber: index };
     if (!expectedEntry) throw new Error(`Reference CSV is missing ${idField} "${id}".`);
-    const actualFlags = new Set(validateRow(inputRow).map((flag) => flag.ruleId));
+    const actualFlags = new Set(validateRow(inputRow, index).map((flag) => flag.ruleId));
     const rowLabel = inputHasId ? `${idField}=${id}` : `row=${index + 1}`;
     let expectedHasFlag = false;
 
