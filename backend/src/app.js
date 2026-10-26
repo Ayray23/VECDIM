@@ -1,8 +1,9 @@
 import cors from 'cors';
 import express from 'express';
-import { checkDatabaseConnection as defaultDatabaseCheck } from './db.js';
+import { checkDatabaseConnection as defaultDatabaseCheck, pool } from './db.js';
+import { createRecordsRouter } from './records-routes.js';
 
-export function createApp({ checkDatabaseConnection = defaultDatabaseCheck } = {}) {
+export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, query = pool.query.bind(pool) } = {}) {
   const app = express();
 
   app.use(cors());
@@ -25,6 +26,8 @@ export function createApp({ checkDatabaseConnection = defaultDatabaseCheck } = {
       });
     }
   });
+
+  app.use('/api/records', createRecordsRouter({ query }));
 
   return app;
 }
