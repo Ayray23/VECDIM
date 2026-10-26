@@ -33,7 +33,7 @@ The test covers the GPS accuracy boundaries (10, 10.1, 50, 50.1), GPS boundary c
 
 ## Full parity test
 
-The candidate pack's `data/vecdim_dummy_entomology_data.csv` and `outputs/validation_flags_all.csv` are required locally. They are not committed because the task says the synthetic data must not be shared or reused.
+The candidate pack's `data/vecdim_dummy_entomology_data.csv` is required locally. The expected flags are generated from the supplied `R/01_validate_and_clean.R` when `outputs/validation_flags_all.csv` is absent, so R and the candidate pack's R dependencies must be installed. Candidate data and generated outputs are not committed.
 
 Run:
 
@@ -41,7 +41,7 @@ Run:
 node scripts/parity-test.mjs /path/to/VECDIM_Candidate_Pack
 ```
 
-The script uses the fixed parity reference date `2026-10-08`, checks all 1,525 rows and all 11 R-output rules, and fails when more than five rule cells differ.
+The script uses the fixed parity reference date `2026-10-08`, checks all 1,525 rows and all 11 R-output rules, aligns records by `record_id` when available, and reports up to 20 mismatch examples. It enforces the supplied aggregate totals of 222 flagged and 1,303 cleaned records, as well as a maximum of five differing rule cells.
 
 ## Sign-off condition
 

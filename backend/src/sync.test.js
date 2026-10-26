@@ -31,26 +31,40 @@ test('sync batch accepts one or more records and limits batches to 100', () => {
 
 test('syncFieldRecords marks a new record as synced', async () => {
   let insertParams;
+  const loggedQueries = [];
   const query = async (sql, params) => {
-    insertParams = params;
-    assert.match(sql, /ON CONFLICT \(id\) DO NOTHING/);
-    return { rows: [{ id: validRecord.id, sync_status: 'synced' }] };
+    loggedQueries.push({ sql, params });
+    if (sql.includes('INSERT INTO sync_batches')) return { rows: [] };
+    if (sql.includes('INSERT INTO field_records')) {
+      insertParams = params;
+      assert.match(sql, /WHERE field_records\.sync_status = 'rejected'/);
+      return { rows: [{ id: validRecord.id, sync_status: 'synced', resubmitted: false }] };
+    }
+    return { rows: [] };
   };
 
-  const result = await syncFieldRecords(query, [validRecord]);
+  const result = await syncFieldRecords(query, [validRecord], { deviceId: 'device-1' });
   assert.equal(result.accepted, 1);
   assert.equal(result.rejected, 0);
+  assert.equal(result.outcome, 'accepted');
   assert.equal(result.results[0].status, 'synced');
   assert.equal(insertParams[0], validRecord.id);
+  assert.ok(loggedQueries.some(({ sql }) => sql.includes('INSERT INTO sync_batch_records')));
+  assert.ok(loggedQueries.some(({ sql, params }) => sql.includes('UPDATE sync_batches') && params[3] === 'accepted'));
+  assert.ok(loggedQueries.some(({ sql, params }) => sql.includes('INSERT INTO sync_batches') && params[1] === 'device-1'));
 });
 
 test('syncFieldRecords reports an existing UUID as already_exists', async () => {
   let calls = 0;
   const query = async (_sql, params) => {
     calls += 1;
-    if (calls === 1) return { rows: [] };
-    assert.deepEqual(params, [validRecord.id]);
-    return { rows: [{ id: validRecord.id, sync_status: 'synced' }] };
+    const sql = _sql;
+    if (sql.includes('INSERT INTO field_records')) return { rows: [] };
+    if (sql.includes('SELECT * FROM field_records')) {
+      assert.deepEqual(params, [validRecord.id]);
+      return { rows: [{ id: validRecord.id, sync_status: 'synced' }] };
+    }
+    return { rows: [] };
   };
 
   const result = await syncFieldRecords(query, [validRecord]);
@@ -60,21 +74,24 @@ test('syncFieldRecords reports an existing UUID as already_exists', async () => 
 
 test('syncFieldRecords rejects one failed record without rejecting the whole batch', async () => {
   const second = { ...validRecord, id: '550e8400-e29b-41d4-a716-446655440001' };
-  const query = async (_sql, params) => {
-    if (params[0] === second.id) throw new Error('database failure');
-    return { rows: [{ id: validRecord.id, sync_status: 'synced' }] };
+  const query = async (sql, params) => {
+    if (sql.includes('INSERT INTO field_records') && params[0] === second.id) throw new Error('secret database detail');
+    if (sql.includes('INSERT INTO field_records')) return { rows: [{ id: validRecord.id, sync_status: 'synced' }] };
+    return { rows: [] };
   };
 
   const result = await syncFieldRecords(query, [validRecord, second]);
   assert.equal(result.accepted, 1);
   assert.equal(result.rejected, 1);
+  assert.equal(result.outcome, 'partial');
   assert.deepEqual(result.results.map((item) => item.status), ['synced', 'rejected']);
+  assert.equal(result.results[1].message, 'Record could not be saved.');
 });
 
-test('syncFieldRecords rejects an invalid batch before database writes', async () => {
-  let calls = 0;
-  const query = async () => {
-    calls += 1;
+test('syncFieldRecords logs invalid batches before returning validation errors', async () => {
+  const calls = [];
+  const query = async (sql, params) => {
+    calls.push({ sql, params });
     return { rows: [] };
   };
 
@@ -82,7 +99,27 @@ test('syncFieldRecords rejects an invalid batch before database writes', async (
     () => syncFieldRecords(query, [{ ...validRecord, deadCount: 101 }]),
     (error) => error.code === 'VALIDATION_ERROR'
   );
-  assert.equal(calls, 0);
+  assert.equal(calls.some(({ sql }) => sql.includes('INSERT INTO sync_batches')), true);
+  assert.equal(calls.some(({ sql }) => sql.includes('INSERT INTO sync_batch_records')), true);
+  assert.equal(calls.some(({ sql }) => sql.includes('INSERT INTO field_records')), false);
+  assert.equal(calls.some(({ sql, params }) => sql.includes('UPDATE sync_batches') && params[1] === 1), true);
+});
+
+test('syncFieldRecords marks a rejected record as resubmitted when its UUID is retried', async () => {
+  let retriedSql;
+  const query = async (sql) => {
+    if (sql.includes('INSERT INTO field_records')) {
+      retriedSql = sql;
+      return { rows: [{ id: validRecord.id, sync_status: 'synced', resubmitted: true }] };
+    }
+    return { rows: [] };
+  };
+
+  const result = await syncFieldRecords(query, [validRecord]);
+  assert.match(retriedSql, /WHERE field_records\.sync_status = 'rejected'/);
+  assert.match(retriedSql, /rejection_reason = NULL/);
+  assert.equal(result.results[0].status, 'synced');
+  assert.equal(result.results[0].resubmitted, true);
 });
 
 test('sync route returns validation_error for an invalid batch', async () => {

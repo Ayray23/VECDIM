@@ -6,7 +6,7 @@ export function createSyncRouter({ query }) {
 
   router.post('/', async (req, res) => {
     try {
-      const result = await syncFieldRecords(query, req.body?.records);
+      const result = await syncFieldRecords(query, req.body?.records, { deviceId: req.body?.deviceId });
       return res.status(200).json(result);
     } catch (error) {
       if (error.code === 'VALIDATION_ERROR') {
