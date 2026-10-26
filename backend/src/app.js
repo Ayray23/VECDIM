@@ -3,6 +3,7 @@ import express from 'express';
 import { checkDatabaseConnection as defaultDatabaseCheck, pool } from './db.js';
 import { createRecordsRouter } from './records-routes.js';
 import { createSyncRouter } from './sync-routes.js';
+import { createAlertsRouter } from './alerts-routes.js';
 
 export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, query = pool.query.bind(pool) } = {}) {
   const app = express();
@@ -30,6 +31,7 @@ export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, quer
 
   app.use('/api/records', createRecordsRouter({ query }));
   app.use('/api/sync', createSyncRouter({ query }));
+  app.use('/api/alerts', createAlertsRouter({ query }));
 
   return app;
 }
