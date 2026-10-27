@@ -1,10 +1,15 @@
 import cors from 'cors';
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { checkDatabaseConnection as defaultDatabaseCheck, pool } from './db.js';
 import { createRecordsRouter } from './records-routes.js';
 import { createSyncRouter } from './sync-routes.js';
 import { createAlertsRouter } from './alerts-routes.js';
 import { createDashboardRouter } from './dashboard-routes.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dashboardPath = path.resolve(__dirname, '../../dashboard');
 
 export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, query = pool.query.bind(pool) } = {}) {
   const app = express();
@@ -44,6 +49,8 @@ export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, quer
   app.use('/api/sync', syncRouter);
   app.use('/api/alerts', alertsRouter);
   app.use('/api/dashboard', dashboardRouter);
+
+  app.use('/dashboard', express.static(dashboardPath));
 
   return app;
 }
