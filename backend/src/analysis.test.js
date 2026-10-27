@@ -14,3 +14,7 @@ test('recordsToCsv preserves record fields and escapes CSV values', () => {
 test('recordsToCsv rejects a non-array input', () => {
   assert.throws(() => recordsToCsv(null), /records must be an array/);
 });
+
+test('recordsToCsv rejects an empty analysis input', () => {
+  assert.throws(() => recordsToCsv([]), /at least one record/);
+});
