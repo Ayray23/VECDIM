@@ -18,6 +18,8 @@ const base = {
   urban: 0,
   irs_covered: 1,
   itn_use_pct: 68.5,
+  ndvi: 0.42,
+  rainfall_mm: 120,
 };
 
 const rules = (record, options = {}) => validateRecord(record, { scope: 'device', ...options }).map((item) => item.ruleId);
@@ -59,7 +61,11 @@ assert.ok(serverRules({ ...base, temp_c: 50.1 }).includes('temp_implausible'));
 assert.ok(serverRules({ ...base, rainfall_mm: -0.1 }).includes('rainfall_implausible'));
 assert.ok(serverRules({ ...base, rainfall_mm: 1500.1 }).includes('rainfall_implausible'));
 
-// Server validation does not require device-only enrichment fields to be present.
+// Server validation requires the analysis covariates specified by the R reference rule.
 assert.ok(!serverRules(base).includes('missing_core'));
+assert.ok(serverRules({ ...base, ndvi: undefined }).includes('missing_core'));
+assert.ok(serverRules({ ...base, rainfall_mm: undefined }).includes('missing_core'));
+assert.ok(serverRules({ ...base, itn_use_pct: undefined }).includes('missing_core'));
+assert.ok(serverRules({ ...base, species: undefined }).includes('missing_core'));
 
 console.log('validation unit tests: PASS');
