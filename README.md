@@ -33,7 +33,7 @@ npm test
 
 ## Run the dashboard
 
-Start the backend and open `http://localhost:3000/dashboard/`.
+Start the backend (`cd backend && npm start`, default port 4000 from `.env`) and open `http://localhost:4000/dashboard/`.
 
 The dashboard reads live API data. Select the appropriate demo user identifier from the candidate pack and the matching role. The API, not the browser, enforces role and state scope.
 
