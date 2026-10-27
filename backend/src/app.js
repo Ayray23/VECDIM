@@ -4,6 +4,7 @@ import { checkDatabaseConnection as defaultDatabaseCheck, pool } from './db.js';
 import { createRecordsRouter } from './records-routes.js';
 import { createSyncRouter } from './sync-routes.js';
 import { createAlertsRouter } from './alerts-routes.js';
+import { createDashboardRouter } from './dashboard-routes.js';
 
 export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, query = pool.query.bind(pool) } = {}) {
   const app = express();
@@ -32,17 +33,17 @@ export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, quer
   const recordsRouter = createRecordsRouter({ query });
   const syncRouter = createSyncRouter({ query });
   const alertsRouter = createAlertsRouter({ query });
+  const dashboardRouter = createDashboardRouter({ query });
 
-  // Required candidate-pack API namespace.
   app.use('/api/v1/records', recordsRouter);
   app.use('/api/v1/sync', syncRouter);
   app.use('/api/v1/alerts', alertsRouter);
+  app.use('/api/v1/dashboard', dashboardRouter);
 
-  // Keep the existing paths temporarily so the mobile client and earlier tests
-  // remain compatible while the client migrates to the required v1 namespace.
   app.use('/api/records', recordsRouter);
   app.use('/api/sync', syncRouter);
   app.use('/api/alerts', alertsRouter);
+  app.use('/api/dashboard', dashboardRouter);
 
   return app;
 }
