@@ -113,6 +113,11 @@ export function validateRecord(record, options = {}) {
     if (positivity !== null && (positivity < 0 || positivity > 100)) add('positivity_out_range', 'Block', 'slide_positivity_pct', 'Slide positivity must be between 0 and 100%.');
     if (temp !== null && (temp < 10 || temp > 50)) add('temp_implausible', 'Block', 'temp_c', 'Temperature must be between 10 and 50 °C.');
     if (rainfall !== null && (rainfall < 0 || rainfall > 1500)) add('rainfall_implausible', 'Block', 'rainfall_mm', 'Rainfall must be between 0 and 1500 mm.');
+
+    // R reference rule: missing_core is based on NDVI, rainfall, ITN use, or species.
+    if (missing(record.ndvi) || missing(record.rainfall_mm) || missing(record.itn_use_pct ?? record.itnUsePercent) || missing(record.species)) {
+      add('missing_core', 'Block', 'ndvi', 'Core analysis covariates/species are missing.');
+    }
   }
 
   const collectionDate = asDateString(record.collection_date ?? record.collectionDate);
@@ -136,12 +141,15 @@ export function validateRecord(record, options = {}) {
     if (itn !== null && (itn < 0 || itn > 100)) add('itn_use_range', 'Block', 'itn_use_pct', 'ITN use must be a number from 0 to 100.');
   }
 
-  const currentId = record.record_id ?? record.recordId;
+  // R reference rule: the earliest record_id in a duplicate group is kept;
+  // every later record with the same key is flagged. Do not use input order.
+  const currentId = String(record.record_id ?? record.recordId ?? '');
   const duplicate = existingRecords
-    .filter((item) => (item.record_id ?? item.recordId) !== currentId)
+    .filter((item) => String(item.record_id ?? item.recordId ?? '') !== currentId)
     .filter((item) => (item.status ?? '') !== 'rejected')
-    .find((item) => duplicateKey(item) === duplicateKey(record));
-  if (duplicate) add('duplicate', 'Warn', 'record_id', `A matching field record already exists (${duplicate.record_id ?? duplicate.recordId}). Check that this is intentional.`);
+    .filter((item) => duplicateKey(item) === duplicateKey(record))
+    .some((item) => String(item.record_id ?? item.recordId ?? '') < currentId);
+  if (duplicate) add('duplicate', 'Warn', 'record_id', 'A matching field record already exists. Check that this is intentional.');
 
   return flags;
 }
