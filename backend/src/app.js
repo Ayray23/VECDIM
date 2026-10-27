@@ -29,9 +29,20 @@ export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, quer
     }
   });
 
-  app.use('/api/records', createRecordsRouter({ query }));
-  app.use('/api/sync', createSyncRouter({ query }));
-  app.use('/api/alerts', createAlertsRouter({ query }));
+  const recordsRouter = createRecordsRouter({ query });
+  const syncRouter = createSyncRouter({ query });
+  const alertsRouter = createAlertsRouter({ query });
+
+  // Required candidate-pack API namespace.
+  app.use('/api/v1/records', recordsRouter);
+  app.use('/api/v1/sync', syncRouter);
+  app.use('/api/v1/alerts', alertsRouter);
+
+  // Keep the existing paths temporarily so the mobile client and earlier tests
+  // remain compatible while the client migrates to the required v1 namespace.
+  app.use('/api/records', recordsRouter);
+  app.use('/api/sync', syncRouter);
+  app.use('/api/alerts', alertsRouter);
 
   return app;
 }
