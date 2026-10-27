@@ -17,7 +17,8 @@ export async function runRAnalysis({
   outputDir,
   workingDir,
   rscriptPath = DEFAULT_RSCRIPT,
-  timeoutMs = 10 * 60 * 1000
+  timeoutMs = 10 * 60 * 1000,
+  spawnImpl = spawn
 }) {
   if (!inputFile) throw new Error('inputFile is required');
   if (!outputDir) throw new Error('outputDir is required');
@@ -31,7 +32,7 @@ export async function runRAnalysis({
   await access(pipeline);
 
   return new Promise((resolve, reject) => {
-    const child = spawn(
+    const child = spawnImpl(
       rscriptPath,
       ['R/run_all.R', resolvedInput, resolvedOutput],
       { cwd: workingDir, stdio: ['ignore', 'pipe', 'pipe'] }
