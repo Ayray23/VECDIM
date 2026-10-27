@@ -3,10 +3,12 @@ name: VECDIM Mobile Stage 1
 on:
   push:
     branches:
-      - 'stage/1-mobile-foundation'
+      - main
+      - 'stage/**'
   pull_request:
     branches:
-      - 'stage/1-mobile-foundation'
+      - main
+      - 'stage/**'
 
 jobs:
   android-bundle:
@@ -20,6 +22,12 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: mobile/package.json
-      - run: npm install
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
       - run: npx expo export --platform android

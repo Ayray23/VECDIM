@@ -31,7 +31,10 @@ This file records meaningful development actions for the technical assessment.
 ### Verification status
 - Source implementation updated and committed on `stage/1-mobile-foundation`.
 - Android bundle previously completed successfully before this final Stage 1 implementation pass.
-- A fresh Android runtime/device test is still required after the new datetime-picker dependency and storage changes. This is a required sign-off step before merging the stage.
+- Required sign-off gate: a fresh Android runtime/device test must confirm the final app behaviour before merge. The verification record must include:
+  - three offline saved records persist across app restart
+  - a partially completed draft resumes with its full values and original ID
+  - GPS accuracy and LGA warning/block behaviours match the field specification
 - Backend sync, server validation, idempotency and dashboard behaviour remain intentionally outside Stage 1.
 
 ### AI assistance

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="VECDIM entomological surveillance dashboard" />
+  <title>VECDIM — Surveillance Dashboard</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">V</div>
+        <div><strong>VECDIM</strong><span>Surveillance</span></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-section="overview"><span>Overview</span></button>
+        <button class="nav-item" data-section="alerts"><span>Alerts</span></button>
+        <button class="nav-item" data-section="records"><span>Field records</span></button>
+      </nav>
+      <div class="sidebar-foot">Offline-first field surveillance</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Decision support</p>
+          <h1 id="page-title">Overview</h1>
+        </div>
+        <div class="identity">
+          <label>User
+            <input id="user-id" value="" placeholder="Demo username or UUID" autocomplete="off" />
+          </label>
+          <label>Role
+            <select id="role">
+              <option value="uniosun">UNIOSUN</option>
+              <option value="vecdim">VECDIM</option>
+              <option value="field">Field</option>
+            </select>
+          </label>
+          <button id="refresh" class="primary">Refresh</button>
+        </div>
+      </header>
+
+      <section id="status" class="status hidden"></section>
+
+      <section id="overview" class="section active">
+        <div class="scope-row">
+          <div><span class="muted">Current scope</span><strong id="scope">All states</strong></div>
+          <div id="last-updated" class="muted">Not loaded</div>
+        </div>
+        <div class="stats-grid">
+          <article class="stat-card"><span>Total records</span><strong id="record-total">—</strong><small id="record-breakdown">—</small></article>
+          <article class="stat-card"><span>Total alerts</span><strong id="alert-total">—</strong><small>From analysis results</small></article>
+          <article class="stat-card alert"><span>ALERT</span><strong id="tier-alert">—</strong><small>Highest risk tier</small></article>
+          <article class="stat-card warning"><span>WARNING</span><strong id="tier-warning">—</strong><small>Requires attention</small></article>
+          <article class="stat-card watch"><span>WATCH</span><strong id="tier-watch">—</strong><small>Monitor closely</small></article>
+        </div>
+        <div class="panel-grid">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">Recent analysis</p><h2>Latest alerts</h2></div><button class="text-button" data-section-target="alerts">View all</button></div><div id="recent-alerts" class="table-wrap"></div></article>
+          <article class="panel insight"><p class="eyebrow">How to read this</p><h2>Risk and resistance are separate</h2><p>The alert tier is the early-warning level. The resistance flag is displayed independently so a resistance signal is not confused with the alert tier.</p><div class="legend"><span><i class="dot alert-dot"></i>ALERT</span><span><i class="dot warning-dot"></i>WARNING</span><span><i class="dot watch-dot"></i>WATCH</span></div></article>
+        </div>
+      </section>
+
+      <section id="alerts" class="section">
+        <div class="panel">
+          <div class="panel-head"><div><p class="eyebrow">Early warning</p><h2>Alerts</h2></div><div class="filters"><input id="state-filter" placeholder="State" /><input id="lga-filter" placeholder="LGA" /><select id="tier-filter"><option value="">All tiers</option><option>ALERT</option><option>WARNING</option><option>WATCH</option></select><button id="apply-filters" class="secondary">Apply</button></div></div>
+          <div id="alerts-table" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="records" class="section">
+        <div class="panel">
+          <div class="panel-head"><div><p class="eyebrow">Field activity</p><h2>Records and sync status</h2></div><button id="records-refresh" class="secondary">Refresh records</button></div>
+          <div id="records-table" class="table-wrap"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
