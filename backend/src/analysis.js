@@ -4,13 +4,21 @@ import { runRAnalysis } from './r-pipeline.js';
 
 export function recordsToCsv(records) {
   if (!Array.isArray(records)) throw new Error('records must be an array');
-  const headers = Object.keys(records[0] ?? {});
+  if (records.length === 0) throw new Error('records must contain at least one record');
+
+  const headers = Object.keys(records[0]);
+  if (headers.length === 0) throw new Error('records must contain at least one field');
+
   const escape = (value) => {
     if (value === null || value === undefined) return '';
     const text = String(value);
     return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
   };
-  return [headers.join(','), ...records.map((record) => headers.map((header) => escape(record[header])).join(','))].join('\n') + '\n';
+
+  return [
+    headers.join(','),
+    ...records.map((record) => headers.map((header) => escape(record[header])).join(','))
+  ].join('\n') + '\n';
 }
 
 /**
