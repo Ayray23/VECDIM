@@ -5,41 +5,14 @@ Offline-first entomological field surveillance prototype for the VECDIM technica
 ## Project structure
 
 - `mobile/` — React Native field application
-- `backend/` — backend API (added in a later stage)
-- `dashboard/` — web dashboard (added in a later stage)
+- `backend/` — Node.js/Express API with PostgreSQL/PostGIS integration
+- `dashboard/` — live role-based decision-support dashboard
 - `packages/` — shared validation and domain logic
-- `docs/` — development, audit, and AI-usage documentation
+- `docs/` — development, audit, dashboard, and AI-usage documentation
 
-## Development status
+## Current status
 
-**Stage 2 — Validation and parity is in progress.** Stage 1 mobile implementation is complete pending final Android runtime/device sign-off.
-
-### Stage 1 includes
-
-- Offline UUID v4 record creation
-- State/LGA/Ward selection
-- Native collection date picker
-- Mosquito species and insecticide selection
-- GPS capture, accuracy display and retry flow
-- Nigeria/state boundary checks
-- 25 km LGA reference-point warning
-- WHO mortality calculation and classification
-- Device-side block/warn checks required for field capture
-- Automatic draft persistence and recovery
-- Multiple saved offline records
-- `pending_sync` local status for records awaiting the later sync stage
-
-### Stage 2 includes
-
-- Shared validation rule module based on the supplied R reference implementation
-- Device/server rule separation
-- WHO mortality edge-case tests
-- GPS accuracy boundary tests
-- LGA distance warning tests
-- Duplicate, future-date and field-consistency tests
-- Candidate-pack parity runner for all 1,525 rows and 11 R-output rules
-
-Stage 2 is not signed off until the candidate-pack parity test has been run locally and the result recorded. The candidate pack's synthetic data and expected output are not copied into this repository.
+Stages 1–4 provide the mobile foundation, validation, safe synchronization, and PostGIS-backed backend. Stage 5 adds the live dashboard and role-scoped dashboard API.
 
 ## Run the mobile app
 
@@ -50,22 +23,32 @@ npm install
 npx expo start
 ```
 
-For Android, use Expo Go on a physical device or an Android emulator.
-
-## Run validation unit tests
+## Run backend tests
 
 ```bash
-node packages/validation/test-validation.mjs
+cd backend
+npm install
+npm test
 ```
 
-## Run the full parity test
+## Run the dashboard
+
+Start the backend and open `http://localhost:3000/dashboard/`.
+
+The dashboard reads live API data. Select the appropriate demo user identifier from the candidate pack and the matching role. The API, not the browser, enforces role and state scope.
+
+## Candidate-pack parity
+
+The synthetic candidate pack is intentionally **not stored in this repository**. Run the parity script against your local copy:
 
 ```bash
 node scripts/parity-test.mjs /path/to/VECDIM_Candidate_Pack
 ```
 
-The parity runner expects the original candidate pack locally because the synthetic data must not be shared or committed to this repository.
+## AI usage
 
-## Stage sign-off rule
+AI coding assistance was used during development and is documented in `docs/AI_USAGE.md`. The developer reviews and tests submitted code and remains responsible for explaining the implementation.
 
-A stage is not merged into `main` until its automated tests and required runtime checklist have been executed successfully. Stage 1's required assessment check is to create three records offline, close/reopen the app, verify all three remain, recover a half-filled draft after restart, and verify the GPS accuracy and LGA warning/block behaviours.
+## Stage sign-off
+
+A stage is merged only after its automated tests and required runtime checks have been completed. The supplied synthetic data and candidate-pack outputs remain local and are never committed to the repository.
