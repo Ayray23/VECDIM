@@ -1,67 +1,90 @@
 # VECDIM
 
-Offline-first entomological field surveillance prototype for the VECDIM technical assessment.
+Offline-first entomological field-surveillance prototype for the VECDIM technical assessment.
 
-## Project structure
+## Repository layout
 
-- `mobile/` — React Native field application
-- `backend/` — Node.js/Express API with PostgreSQL/PostGIS integration
-- `dashboard/` — live role-based decision-support dashboard
-- `packages/` — shared validation and domain logic
-- `docs/` — development, audit, dashboard, and AI-usage documentation
+- `mobile/` — React Native / Expo field app, offline records and drafts, GPS capture, local validation and sync client.
+- `backend/` — Node.js / Express API, PostgreSQL/PostGIS migrations, server-side validation, sync and role-scoped reads.
+- `dashboard/` — role-based decision-support dashboard served by the backend.
+- `packages/validation/` — shared field validation rules.
+- `scripts/` — validation and candidate-pack parity utilities.
+- `docs/` — setup, integration, parity status and AI-use notes.
 
-## Current status
+## Run locally
 
-Stages 1–4 provide the mobile foundation, validation, safe synchronization, and PostGIS-backed backend. Stage 5 adds the live dashboard and role-scoped dashboard API.
+The current setup starts the backend and mobile app in separate terminals; a single-command Docker Compose startup is not included.
 
-## Run the mobile app
+### 1. Backend and database
 
-Start the backend first (see "Run the dashboard" below), then from `mobile/`:
+Requirements: Node.js 20+, PostgreSQL, and PostGIS installed in the database.
 
-```bash
+From PowerShell:
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
+
+Edit `backend/.env` with your local PostgreSQL credentials. Then run:
+
+```powershell
+npm install
+npm run migrate
+npm start
+```
+
+Check `http://localhost:4000/health`; it should report `status: ok` and `database: connected`. The dashboard is served at `http://localhost:4000/dashboard/`.
+
+### 2. Mobile app
+
+In a second terminal:
+
+```powershell
+cd mobile
 npm install
 npx expo start
 ```
 
-The app finds the backend automatically: it uses the computer running `expo start`, so a phone must be on the same Wi-Fi, and the computer's firewall must allow port 4000. To point the app somewhere else (for example a deployed server), set `EXPO_PUBLIC_API_URL` before starting, such as `EXPO_PUBLIC_API_URL=https://your-server npx expo start`. If an upload fails, the message under "Saved records" shows the address the app tried.
+On a physical Android phone, keep the phone and computer on the same Wi-Fi. The app attempts to resolve the Expo host's LAN address automatically. If needed, copy `mobile/.env.example` to `mobile/.env`, set `EXPO_PUBLIC_API_URL=http://YOUR_COMPUTER_LAN_IP:4000`, and restart Expo. For an Android emulator, the app falls back to `http://10.0.2.2:4000`.
 
-## Run backend tests
+Full setup details: [Mobile/backend integration](docs/MOBILE_BACKEND_INTEGRATION.md).
 
-```bash
+## Tests
+
+Backend and script tests:
+
+```powershell
 cd backend
-npm install
+npm ci
 npm test
 ```
 
-## Run the dashboard
+Validation edge cases:
 
-The backend needs PostgreSQL with the PostGIS extension available. From `backend/`:
-
-```bash
-cp .env.example .env   # then set DATABASE_URL
-npm install
-npm run migrate        # creates the schema and seeds the demo users
-npm start              # listens on PORT from .env (default 4000)
+```powershell
+node packages/validation/test-validation.mjs
+node scripts/validation-self-check.mjs
 ```
 
-Then open `http://localhost:4000/dashboard/`.
+The GitHub Actions workflows run backend/script tests, validation tests, and an Expo Android bundle export.
 
-Record, sync-status, alert and dashboard reads require the `x-user-id` and `x-role` headers; results are limited to the user's assigned state unless the role is UNIOSUN.
+## Why this backend
 
-The dashboard reads live API data. Select the appropriate demo user identifier from the candidate pack and the matching role. The API, not the browser, enforces role and state scope.
+- **Existing R pipeline:** the API keeps analytical logic in the supplied R pipeline and includes a runner that can invoke it with prepared input data. Alerts and other outputs must be loaded from the supplied analysis outputs for assessment parity; the candidate pack is not committed to this repository.
+- **Future modelling:** new models, retraining, covariates and a future NTD module can run as separate R or Python jobs and publish versioned outputs that the API imports, rather than putting model execution in mobile clients.
+- **Scalability:** Express is stateless and can be replicated behind a load balancer; PostgreSQL/PostGIS remains the system of record and spatial indexes support location queries. A production deployment would also need managed infrastructure, monitoring, backups and a durable worker/queue for larger ingestion volumes.
+- **Maintainability:** the code is split into API routes, data access, migrations, shared validation and a small static dashboard. Node.js is a familiar single runtime for the API and JavaScript validation, while the existing R pipeline remains independently owned.
 
-## Candidate-pack parity
+## Assessment status and known limitations
 
-The synthetic candidate pack is intentionally **not stored in this repository**. Run the parity script against your local copy:
-
-```bash
-node scripts/parity-test.mjs /path/to/VECDIM_Candidate_Pack
-```
+- Mobile records and drafts are stored locally; sync runs after saving, when the app becomes active, and on user request. The server validates incoming records and supports per-record outcomes and same-ID correction after a rejection.
+- The database schema includes PostGIS geometry and a spatial index; live database operation still depends on the reviewer's/local machine's PostgreSQL/PostGIS configuration.
+- The official 1,525-row parity comparison has **not** been recorded as passing. Run `node scripts/parity-test.mjs /path/to/VECDIM_Candidate_Pack` with the supplied candidate pack and required R dependencies; see [parity status](docs/PARITY_RESULT.md).
+- An automated import/seed script for the supplied `cleaned_data.csv` and `alerts.csv`, verified 647-alert and tier totals, a single-command full-stack startup, and a demo recording are not included/verified in this repository yet.
+- A true OS-level background sync task and exponential retry/back-off have not been verified.
+- The synthetic dataset is assessment material and is intentionally not committed to this repository.
 
 ## AI usage
 
-AI coding assistance was used during development and is documented in `docs/AI_USAGE.md`. The developer reviews and tests submitted code and remains responsible for explaining the implementation.
-
-## Stage sign-off
-
-A stage is merged only after its automated tests and required runtime checks have been completed. The supplied synthetic data and candidate-pack outputs remain local and are never committed to the repository.
+AI coding assistance was used during development and is documented in [docs/AI_USAGE.md](docs/AI_USAGE.md). The developer reviews and tests submitted code and remains responsible for explaining the implementation.
