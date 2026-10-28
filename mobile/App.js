@@ -4,9 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { isPending, statusLabel, syncPending } from './sync';
 
 const DRAFT_KEY = '@vecdim/draft-v2';
 const RECORDS_KEY = '@vecdim/records-v1';
+const DEVICE_ID_KEY = '@vecdim/device-id';
+// Backend base URL. Set EXPO_PUBLIC_API_URL for a real device or deployment; the default
+// is the Android emulator's alias for the host machine's localhost.
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:4000';
 
 const LGA_REFERENCE = {
   Lagos: { Ikorodu: [6.62, 3.51], Alimosho: [6.6, 3.25], Epe: [6.58, 3.98], Badagry: [6.43, 2.88], 'Eti-Osa': [6.45, 3.6] },
@@ -132,11 +137,37 @@ export default function App() {
   const [record, setRecord] = useState(makeRecord); const [records, setRecords] = useState([]); const [draftLoaded, setDraftLoaded] = useState(false); const [dirty, setDirty] = useState(false);
   const [gpsStatus, setGpsStatus] = useState('Location not captured'); const [gpsBusy, setGpsBusy] = useState(false); const [saveStatus, setSaveStatus] = useState('Draft saves automatically'); const [showDatePicker, setShowDatePicker] = useState(false);
   const watchRef = useRef(null); const debounceRef = useRef(null);
+  const recordsRef = useRef([]); const syncingRef = useRef(false);
+  const [syncing, setSyncing] = useState(false); const [syncMessage, setSyncMessage] = useState('Not synced yet');
+
+  // recordsRef always holds the latest saved list, so a sync that finishes while the
+  // user saves another record merges into the current list instead of overwriting it.
+  const commitRecords = (next) => { recordsRef.current = next; setRecords(next); };
+  const persistRecords = () => AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(recordsRef.current));
+  const getDeviceId = async () => {
+    let id = await AsyncStorage.getItem(DEVICE_ID_KEY);
+    if (!id) { id = Crypto.randomUUID(); await AsyncStorage.setItem(DEVICE_ID_KEY, id); }
+    return id;
+  };
+  const runSync = async () => {
+    if (syncingRef.current || !recordsRef.current.some(isPending)) return;
+    syncingRef.current = true; setSyncing(true); setSyncMessage('Syncing…');
+    try {
+      const result = await syncPending({ records: recordsRef.current, deviceId: await getDeviceId(), baseUrl: API_URL, fetchImpl: fetch });
+      if (Object.keys(result.updated).length) {
+        commitRecords(recordsRef.current.map((item) => result.updated[item.recordId] ?? item));
+        await persistRecords();
+      }
+      if (result.error) setSyncMessage(result.error);
+      else if (result.rejected || result.deferred) setSyncMessage(`${result.synced} synced · ${result.rejected} need fixing${result.deferred ? ` · ${result.deferred} will retry` : ''}`);
+      else setSyncMessage(`${result.synced} synced just now`);
+    } catch { setSyncMessage('Sync failed. Records stay on this device.'); } finally { syncingRef.current = false; setSyncing(false); }
+  };
 
   useEffect(() => {
     (async () => {
       const [draftValue, recordsValue] = await Promise.all([AsyncStorage.getItem(DRAFT_KEY), AsyncStorage.getItem(RECORDS_KEY)]);
-      if (recordsValue) { try { setRecords(JSON.parse(recordsValue)); } catch { setRecords([]); } }
+      if (recordsValue) { try { commitRecords(JSON.parse(recordsValue)); } catch { commitRecords([]); } }
       if (draftValue) {
         try {
           const draft = JSON.parse(draftValue);
@@ -146,6 +177,7 @@ export default function App() {
           ], { cancelable: false });
         } catch { setDraftLoaded(true); }
       } else setDraftLoaded(true);
+      runSync();
     })();
     return () => { if (watchRef.current) watchRef.current.remove(); if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, []);
@@ -153,6 +185,7 @@ export default function App() {
   const persistDraft = async (nextRecord) => { await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ ...nextRecord, status: 'draft' })); setSaveStatus('Draft saved automatically on this device'); };
   useEffect(() => { if (!draftLoaded || !dirty) return undefined; if (debounceRef.current) clearTimeout(debounceRef.current); debounceRef.current = setTimeout(() => persistDraft(record).catch(() => setSaveStatus('Could not autosave draft')), 600); return () => clearTimeout(debounceRef.current); }, [record, draftLoaded, dirty]);
   useEffect(() => { const subscription = AppState.addEventListener('change', (state) => { if (state === 'background' && dirty) persistDraft(record).catch(() => {}); }); return () => subscription.remove(); }, [record, dirty]);
+  useEffect(() => { const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') runSync(); }); return () => subscription.remove(); }, []);
 
   const update = (field, value) => { setRecord((current) => ({ ...current, [field]: value })); setDirty(true); setSaveStatus('Saving draft…'); };
   const mortality = useMemo(() => { const exposed = Number(record.exposed); const dead = Number(record.dead); if (!Number.isFinite(exposed) || exposed <= 0 || !Number.isFinite(dead)) return null; return Math.round((dead / exposed) * 1000) / 10; }, [record.exposed, record.dead]);
@@ -215,14 +248,29 @@ export default function App() {
     const flags = validateRecord(record, records); const blocks = flags.filter((flag) => flag.severity === 'Block');
     if (blocks.length) { Alert.alert('Cannot save yet', blocks.map((flag) => `• ${flag.message}`).join('\n\n')); return; }
     const saved = { ...record, status: 'pending_sync', validationFlags: flags, savedAt: new Date().toISOString() };
-    const next = [...records.filter((item) => item.recordId !== saved.recordId), saved];
-    await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(next)); await AsyncStorage.removeItem(DRAFT_KEY);
-    setRecords(next); setRecord(makeRecord()); setDirty(false); setSaveStatus('Record saved offline · waiting to sync'); Keyboard.dismiss();
-    Alert.alert('Saved offline', warningFlags.length ? `Record saved with ${warningFlags.length} warning(s). It will be synced later.` : 'Record is stored on this device and is ready for later sync.');
+    const next = [...recordsRef.current.filter((item) => item.recordId !== saved.recordId), saved];
+    commitRecords(next);
+    await persistRecords(); await AsyncStorage.removeItem(DRAFT_KEY);
+    setRecord(makeRecord()); setDirty(false); setSaveStatus('Record saved on this device · uploads when the server is reachable'); Keyboard.dismiss();
+    Alert.alert('Saved on this device', warningFlags.length ? `Record saved with ${warningFlags.length} warning(s). It will upload when the server is reachable.` : 'Record is stored on this device and will upload when the server is reachable.');
+    runSync();
   };
 
   const discardDraft = async () => Alert.alert('Discard draft?', 'All values in this unfinished record will be removed.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Discard', style: 'destructive', onPress: async () => { await AsyncStorage.removeItem(DRAFT_KEY); setRecord(makeRecord()); setDirty(false); setSaveStatus('Draft saves automatically'); } }]);
   const resetForNewRecord = () => { setRecord(makeRecord()); setDirty(false); setSaveStatus('Draft saves automatically'); setGpsStatus('Location not captured'); };
+  const pendingCount = records.filter(isPending).length;
+
+  // Loads a rejected record back into the form under the same record ID, so saving it
+  // again resubmits it and the server replaces the rejected version.
+  const loadForEditing = (item) => {
+    const open = () => {
+      const { rejectionReason, serverFlags, syncError, syncWarnings, syncedAt, validationFlags, savedAt, ...fields } = item;
+      setRecord({ ...fields, status: 'draft' }); setDirty(true);
+      setSaveStatus('Fix the issues, then save to resubmit this record.');
+    };
+    if (!dirty) { open(); return; }
+    Alert.alert('Replace the current draft?', 'The unfinished record in the form will be replaced by the rejected record.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Load record', onPress: open }]);
+  };
 
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <View style={styles.topBar}><Text style={styles.brand}>VECDIM <Text style={styles.brandLight}>/ FIELD</Text></Text><View style={styles.offlineTag}><View style={styles.statusDot} /><Text style={styles.offlineText}>OFFLINE READY</Text></View></View>
@@ -246,7 +294,9 @@ export default function App() {
     {blockingFlags.length ? <View style={styles.blockBox}><Text style={styles.blockTitle}>Fix before saving</Text>{blockingFlags.map((flag, index) => <Text key={`${flag.ruleId}-${index}`} style={styles.blockText}>• {flag.message}</Text>)}</View> : null}
     {warningFlags.length ? <View style={styles.warningSummary}><Text style={styles.warningTitle}>Warnings</Text>{warningFlags.map((flag, index) => <Text key={`${flag.ruleId}-${index}`} style={styles.warningText}>• {flag.message}</Text>)}</View> : null}
 
-    <View style={styles.formSection}><SectionHeading number="04" title="Saved offline" detail="Records stay on this device until a later sync stage uploads them." />{records.length ? records.map((item) => <View key={item.recordId} style={styles.savedRecord}><View style={{ flex: 1 }}><Text style={styles.savedId}>{item.recordId}</Text><Text style={styles.savedMeta}>{item.state} · {item.lga} · {item.collectionDate}</Text></View><Text style={styles.savedStatus}>{item.status === 'pending_sync' ? 'PENDING SYNC' : item.status.toUpperCase()}</Text></View>) : <Text style={styles.emptyText}>No saved field records yet.</Text>}</View>
+    <View style={styles.formSection}><SectionHeading number="04" title="Saved records" detail="Records are stored on this device first and upload when the server is reachable." />
+      <View style={styles.syncRow}><Text style={styles.syncMessage}>{syncMessage}</Text><Pressable style={[styles.syncButton, (syncing || pendingCount === 0) && styles.syncButtonDisabled]} onPress={runSync} disabled={syncing || pendingCount === 0} accessibilityRole="button" accessibilityLabel="Sync now">{syncing ? <ActivityIndicator /> : <Text style={styles.syncButtonText}>SYNC NOW{pendingCount ? ` (${pendingCount})` : ''}</Text>}</Pressable></View>
+      {records.length ? records.map((item) => <View key={item.recordId} style={styles.savedRecord}><View style={{ flex: 1 }}><Text style={styles.savedId}>{item.recordId}</Text><Text style={styles.savedMeta}>{item.state} · {item.lga} · {item.collectionDate}</Text>{item.status === 'rejected' && item.rejectionReason ? <Text style={styles.rejectedText}>{item.rejectionReason}</Text> : null}{item.status === 'pending_sync' && item.syncError ? <Text style={styles.savedMeta}>{item.syncError}</Text> : null}{item.syncWarnings?.length ? <Text style={styles.savedMeta}>Warnings: {item.syncWarnings.join(' ')}</Text> : null}{item.status === 'rejected' ? <Pressable onPress={() => loadForEditing(item)} accessibilityRole="button"><Text style={styles.fixLink}>FIX AND RESUBMIT</Text></Pressable> : null}</View><Text style={[styles.savedStatus, item.status === 'rejected' && styles.savedStatusRejected, item.status === 'synced' && styles.savedStatusSynced]}>{statusLabel(item.status)}</Text></View>) : <Text style={styles.emptyText}>No saved field records yet.</Text>}</View>
 
     <View style={styles.footer}><Text style={styles.saveStatus}>{saveStatus}</Text><Pressable style={styles.primaryButton} onPress={saveRecord}><Text style={styles.buttonText}>Save field record</Text><Text style={styles.buttonArrow}>→</Text></Pressable><Pressable style={styles.resetButton} onPress={discardDraft}><Text style={styles.resetText}>Discard this draft</Text></Pressable><Pressable style={styles.secondaryButton} onPress={resetForNewRecord}><Text style={styles.secondaryText}>Start a new blank record</Text></Pressable></View>
   </ScrollView></SafeAreaView>;
@@ -258,4 +308,6 @@ const styles = StyleSheet.create({
   locationButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8eee6', minHeight: 66, paddingHorizontal: 12, marginTop: 1 }, locationMark: { width: 37, height: 37, backgroundColor: '#28523d', alignItems: 'center', justifyContent: 'center' }, locationMarkText: { color: '#fff', fontSize: 9, fontWeight: '900' }, locationCopy: { flex: 1, marginLeft: 11 }, locationTitle: { color: '#294334', fontSize: 13, fontWeight: '800' }, locationDetail: { color: '#68786b', fontSize: 11, marginTop: 4 }, locationAction: { color: '#426d50', fontSize: 9, fontWeight: '900', marginLeft: 8 }, coordinates: { color: '#647269', fontSize: 10, marginTop: 8 }, distanceText: { color: '#68786b', fontSize: 11, marginTop: 8 }, warningBox: { backgroundColor: '#f7eee3', padding: 11, marginTop: 10 }, warningTitle: { color: '#7a5b32', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' }, warningText: { color: '#765c3a', fontSize: 12, marginTop: 4, lineHeight: 17 },
   countGrid: { flexDirection: 'row', justifyContent: 'space-between' }, result: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#e5eee4', paddingHorizontal: 15, paddingVertical: 13, marginBottom: 16 }, resultAlert: { backgroundColor: '#f6e9e2' }, resultLabel: { color: '#54705b', fontSize: 9, fontWeight: '900' }, classification: { color: '#415b48', fontSize: 12, fontWeight: '700', marginTop: 5 }, resultValue: { color: '#234b34', fontSize: 28, fontWeight: '800' }, segmented: { flexDirection: 'row', backgroundColor: '#e6eae3', marginBottom: 15 }, segment: { flex: 1, paddingVertical: 12, alignItems: 'center' }, segmentSelected: { backgroundColor: '#28523d' }, segmentText: { color: '#667268', fontWeight: '700', fontSize: 12 }, segmentTextSelected: { color: '#fff' }, toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7 }, toggleCopy: { flex: 1 }, toggleHint: { color: '#7a847c', fontSize: 11, marginTop: 3 }, switchTrack: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#d5dcd4', padding: 3 }, switchTrackOn: { backgroundColor: '#4d8060' }, switchThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' }, switchThumbOn: { transform: [{ translateX: 20 }] },
   blockBox: { backgroundColor: '#f8e7e3', padding: 14, marginTop: 20 }, blockTitle: { color: '#8b4436', fontSize: 11, fontWeight: '900', textTransform: 'uppercase' }, blockText: { color: '#75493f', fontSize: 12, marginTop: 6, lineHeight: 17 }, warningSummary: { backgroundColor: '#f7eee3', padding: 14, marginTop: 12 }, savedRecord: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#e0e5de' }, savedId: { color: '#354a3d', fontSize: 10, fontWeight: '800' }, savedMeta: { color: '#7a847c', fontSize: 10, marginTop: 3 }, savedStatus: { color: '#557060', fontSize: 9, fontWeight: '900' }, emptyText: { color: '#7a847c', fontSize: 12 }, footer: { paddingTop: 25 }, saveStatus: { color: '#6f7b72', fontSize: 11, marginBottom: 10 }, primaryButton: { minHeight: 52, backgroundColor: '#244c38', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 17 }, buttonText: { color: '#fff', fontSize: 13, fontWeight: '800' }, buttonArrow: { color: '#dfece2', fontSize: 20 }, resetButton: { alignItems: 'center', paddingVertical: 14 }, resetText: { color: '#8c4b40', fontSize: 11, fontWeight: '800' }, secondaryButton: { alignItems: 'center', paddingVertical: 10 }, secondaryText: { color: '#4c6d59', fontSize: 11, fontWeight: '800' }, modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 24 }, modalCard: { backgroundColor: '#fff', maxHeight: '75%', padding: 18 }, modalTitle: { color: '#20392d', fontSize: 18, fontWeight: '800', marginBottom: 10 }, option: { paddingVertical: 14, borderBottomWidth: 1, borderColor: '#edf0eb' }, optionText: { color: '#304338', fontSize: 14 },
+  syncRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }, syncMessage: { flex: 1, color: '#68786b', fontSize: 11, lineHeight: 16 }, syncButton: { minWidth: 112, minHeight: 38, backgroundColor: '#28523d', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }, syncButtonDisabled: { backgroundColor: '#b9c4bb' }, syncButtonText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  rejectedText: { color: '#8b4436', fontSize: 11, marginTop: 4, lineHeight: 16 }, fixLink: { color: '#426d50', fontSize: 10, fontWeight: '900', marginTop: 8 }, savedStatusRejected: { color: '#8b4436' }, savedStatusSynced: { color: '#2f7a4a' },
 });
