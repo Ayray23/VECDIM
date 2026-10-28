@@ -35,7 +35,7 @@ function getLgaDistance(record) {
   return haversineKm(Number(record.latitude), Number(record.longitude), ref[0], ref[1]);
 }
 
-function validateRecord(record, existingRecords = []) {
+function validateRecord(record, existingRecords = [], options = {}) {
   const flags = [];
   const add = (ruleId, severity, field, message) => flags.push({ ruleId, severity, field, message });
   const lat = asFiniteNumber(record.latitude);
@@ -88,7 +88,7 @@ function validateRecord(record, existingRecords = []) {
   if (!record.species || !SPECIES.includes(record.species)) add('missing_core', 'Block', 'species', 'Choose a mosquito species.');
   if (!record.insecticide || !INSECTICIDES.includes(record.insecticide)) add('missing_core', 'Block', 'insecticide', 'Choose an insecticide.');
   if (!record.collectionDate) add('missing_core', 'Block', 'collectionDate', 'Choose a collection date.');
-  if (record.collectionDate && record.collectionDate > today()) add('future_date', 'Block', 'collectionDate', 'Collection date cannot be in the future.');
+  if (record.collectionDate && record.collectionDate > (options.referenceDate || today())) add('future_date', 'Block', 'collectionDate', 'Collection date cannot be in the future.');
   if (!record.urban) add('missing_core', 'Block', 'urban', 'Choose Urban or Rural.');
   if (typeof record.irsCovered !== 'boolean') add('missing_core', 'Block', 'irsCovered', 'Choose whether IRS covered the area.');
 
