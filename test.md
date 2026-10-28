@@ -487,3 +487,25 @@ node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDI
 **Result: FAIL — investigate before release.** The supplied R validation stage completed and generated the reference flags. Reference totals matched the expected 222 flagged / 1,303 clean rows. JavaScript produced 107 flagged / 1,418 clean rows, with 115 differing rule cells (allowed maximum: 5). All 115 differences are in `missing_core`: reference expected true, JavaScript returned false. Each of the other ten rule-level flagged counts matched the reference counts. First examples included VD00051, VD01469, VD00983, and VD01378.
 
 **Interpretation / next action:** Inspect missing-value representation in the candidate CSV, the R reference rule, and the JavaScript `missing_core` predicate. Do not change validation behavior until the cause is confirmed. Re-run the parity test after any fix and record the new result here.
+
+
+## Missing-value parity investigation and fix candidate — 2026-10-28
+
+**Input inspection result:** The supplied CSV uses literal `NA` strings, not empty cells, for missing values. PowerShell inspection of reference-flagged records confirmed the affected values in `ndvi`, `rainfall_mm`, `itn_use_pct`, and `species`. Field counts observed: NDVI 45, rainfall 35, ITN use 20, species 15; the reference flags 115 records for `missing_core`.
+
+**Cause identified:** The shared JavaScript `missing()` helper recognized only null, undefined, and the empty string. Therefore literal CSV missing markers were incorrectly treated as present. The issue affects server `missing_core` parity and can also affect other missing-value checks.
+
+**Isolated fix branch:** `fix/missing-core-na-parity` (branched from `feature/server-validation-and-mobile-sync`). No application UI, backend routes, database schema, or branch merges were changed.
+
+**Changes made on the fix branch:**
+- Updated `packages/validation/index.js` so `missing()` recognizes whitespace-only strings and case-insensitive `NA`, `N/A`, and `NULL` markers.
+- Added regression assertions in `packages/validation/test-validation.mjs` for those markers across server `missing_core` inputs, plus a device required-field case.
+
+**Verification status:** Fix candidate committed; local test execution and official parity rerun are **pending**. Do not mark parity PASS until the validation unit tests, self-check, and official 1,525-row parity runner have been executed and their real output recorded.
+
+**Commands to run from the repo root after checking out this branch:**
+```powershell
+node .\packages\validation\test-validation.mjs
+node .\scripts\validation-self-check.mjs
+node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack"
+```
