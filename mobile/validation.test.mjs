@@ -45,6 +45,8 @@ for (const accuracy of ['10.1', '50']) {
   const flags = messages(record, [earlier]);
   assert.equal(flags.some((flag) => flag.ruleId === 'duplicate' && flag.severity === 'Warn'), true, 'matching earlier record should produce a warning');
   assert.equal(flags.some((flag) => flag.severity === 'Block'), false, 'duplicate warning must not block saving');
+  const earlierIdIsNotFlagged = ids(earlier, [record]);
+  assert.equal(earlierIdIsNotFlagged.includes('duplicate'), false, 'earliest record ID must be retained when only a later duplicate exists');
 }
 {
   const record = validRecord();
