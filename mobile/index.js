@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { AppState } from 'react-native';
 import { registerRootComponent } from 'expo';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import App from './App';
@@ -101,4 +102,8 @@ function SyncBootstrap() {
   return <App />;
 }
 
-registerRootComponent(SyncBootstrap);
+function Root() {
+  return <SafeAreaProvider><SyncBootstrap /></SafeAreaProvider>;
+}
+
+registerRootComponent(Root);
