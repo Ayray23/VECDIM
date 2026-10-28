@@ -1,0 +1,37 @@
+name: Backend and script tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'stage/**'
+  pull_request:
+    branches:
+      - main
+      - 'stage/**'
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+      - name: Run backend tests
+        run: npm test
+        working-directory: backend
+      - name: Run mobile sync client tests
+        run: node --test mobile/sync.test.mjs
+      - name: Run parity utility tests
+        run: node --test scripts/parity-utils.test.mjs
+      - name: Run validation self-check
+        run: node scripts/validation-self-check.mjs

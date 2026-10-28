@@ -14,7 +14,7 @@ WHERE n_records IS NULL OR mean_risk IS NULL;
 
 ALTER TABLE alerts
   ADD CONSTRAINT alerts_month_format_chk
-  CHECK (month IS NULL OR month ~ '^\\d{4}-\\d{2}$');
+  CHECK (month IS NULL OR month ~ '^\d{4}-\d{2}$');
 
 ALTER TABLE alerts
   ADD CONSTRAINT alerts_n_records_chk

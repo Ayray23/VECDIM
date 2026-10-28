@@ -9,6 +9,9 @@ const isMain = process.argv[1]
 
 if (isMain) {
   try {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL is not set. Copy backend/.env.example to backend/.env and set DATABASE_URL.');
+    }
     const applied = await runMigrations();
     console.log(applied.length ? `Applied migrations: ${applied.join(', ')}` : 'Database is up to date.');
   } catch (error) {

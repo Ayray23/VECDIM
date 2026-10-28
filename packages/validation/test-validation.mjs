@@ -59,7 +59,13 @@ assert.ok(serverRules({ ...base, temp_c: 50.1 }).includes('temp_implausible'));
 assert.ok(serverRules({ ...base, rainfall_mm: -0.1 }).includes('rainfall_implausible'));
 assert.ok(serverRules({ ...base, rainfall_mm: 1500.1 }).includes('rainfall_implausible'));
 
-// Server validation does not require device-only enrichment fields to be present.
-assert.ok(!serverRules(base).includes('missing_core'));
+// Server-side missing_core follows the R reference: it depends on NDVI, rainfall, ITN use and species.
+const enriched = { ...base, ndvi: 0.42, rainfall_mm: 120 };
+assert.ok(!serverRules(enriched).includes('missing_core'));
+assert.ok(serverRules(base).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, ndvi: null }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, rainfall_mm: '' }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, itn_use_pct: undefined }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, species: '' }).includes('missing_core'));
 
 console.log('validation unit tests: PASS');

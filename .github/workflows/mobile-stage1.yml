@@ -10,6 +10,9 @@ on:
       - main
       - 'stage/**'
 
+permissions:
+  contents: read
+
 jobs:
   android-bundle:
     runs-on: ubuntu-latest

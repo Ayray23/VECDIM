@@ -78,7 +78,14 @@ export async function getFieldRecord(query, id) {
   return result.rows[0] ?? null;
 }
 
-export async function listFieldRecords(query, { limit = 50, offset = 0 } = {}) {
+export async function listFieldRecords(query, { limit = 50, offset = 0, state = null } = {}) {
+  if (state) {
+    const scoped = await query(
+      'SELECT * FROM field_records WHERE state = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+      [state, limit, offset]
+    );
+    return scoped.rows;
+  }
   const result = await query(
     'SELECT * FROM field_records ORDER BY created_at DESC LIMIT $1 OFFSET $2',
     [limit, offset]

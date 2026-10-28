@@ -16,12 +16,14 @@ Stages 1–4 provide the mobile foundation, validation, safe synchronization, an
 
 ## Run the mobile app
 
-From `mobile/`:
+Start the backend first (see "Run the dashboard" below), then from `mobile/`:
 
 ```bash
 npm install
 npx expo start
 ```
+
+The app finds the backend automatically: it uses the computer running `expo start`, so a phone must be on the same Wi-Fi, and the computer's firewall must allow port 4000. To point the app somewhere else (for example a deployed server), set `EXPO_PUBLIC_API_URL` before starting, such as `EXPO_PUBLIC_API_URL=https://your-server npx expo start`. If an upload fails, the message under "Saved records" shows the address the app tried.
 
 ## Run backend tests
 
@@ -33,7 +35,18 @@ npm test
 
 ## Run the dashboard
 
-Start the backend and open `http://localhost:3000/dashboard/`.
+The backend needs PostgreSQL with the PostGIS extension available. From `backend/`:
+
+```bash
+cp .env.example .env   # then set DATABASE_URL
+npm install
+npm run migrate        # creates the schema and seeds the demo users
+npm start              # listens on PORT from .env (default 4000)
+```
+
+Then open `http://localhost:4000/dashboard/`.
+
+Record, sync-status, alert and dashboard reads require the `x-user-id` and `x-role` headers; results are limited to the user's assigned state unless the role is UNIOSUN.
 
 The dashboard reads live API data. Select the appropriate demo user identifier from the candidate pack and the matching role. The API, not the browser, enforces role and state scope.
 
