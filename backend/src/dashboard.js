@@ -18,7 +18,7 @@ async function loadUser(query, requestUser) {
   return { ...row, role: storedRole };
 }
 
-function scopeForUser(user, requestedState) {
+export function scopeForUser(user, requestedState) {
   if (user.role === 'vecdim' || user.role === 'field') {
     if (!user.state) throw httpError('FORBIDDEN', 'No state is assigned to this user.');
     return user.state;
@@ -26,7 +26,7 @@ function scopeForUser(user, requestedState) {
   return requestedState || null;
 }
 
-async function authenticate(query, headers) {
+export async function authenticate(query, headers) {
   const requestUser = getRequestUser(headers);
   if (!requestUser) throw httpError('UNAUTHORIZED', 'A valid x-user-id and x-role header are required.');
   const user = await loadUser(query, requestUser);

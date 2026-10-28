@@ -33,7 +33,18 @@ npm test
 
 ## Run the dashboard
 
-Start the backend (`cd backend && npm start`, default port 4000 from `.env`) and open `http://localhost:4000/dashboard/`.
+The backend needs PostgreSQL with the PostGIS extension available. From `backend/`:
+
+```bash
+cp .env.example .env   # then set DATABASE_URL
+npm install
+npm run migrate        # creates the schema and seeds the demo users
+npm start              # listens on PORT from .env (default 4000)
+```
+
+Then open `http://localhost:4000/dashboard/`.
+
+Record, sync-status, alert and dashboard reads require the `x-user-id` and `x-role` headers; results are limited to the user's assigned state unless the role is UNIOSUN.
 
 The dashboard reads live API data. Select the appropriate demo user identifier from the candidate pack and the matching role. The API, not the browser, enforces role and state scope.
 

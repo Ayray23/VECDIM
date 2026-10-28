@@ -52,6 +52,18 @@ export function createApp({ checkDatabaseConnection = defaultDatabaseCheck, quer
 
   app.use('/dashboard', express.static(dashboardPath));
 
+  // Return JSON errors (no stack traces) for malformed or oversized request bodies.
+  app.use((error, _req, res, _next) => {
+    if (error?.type === 'entity.parse.failed') {
+      return res.status(400).json({ error: 'invalid_json', message: 'Request body is not valid JSON.' });
+    }
+    if (error?.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'payload_too_large', message: 'Request body is too large.' });
+    }
+    console.error(error);
+    return res.status(500).json({ error: 'internal_error', message: 'Unexpected server error.' });
+  });
+
   return app;
 }
 

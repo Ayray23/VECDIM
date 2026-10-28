@@ -23,7 +23,7 @@ function escapeHtml(value) {
 
 function tierBadge(tier) {
   const safe = escapeHtml(tier || '');
-  const cls = String(tier || '').toLowerCase();
+  const cls = escapeHtml(String(tier || '').toLowerCase());
   return `<span class="tier tier-${cls}">${safe}</span>`;
 }
 
@@ -58,7 +58,7 @@ function renderAlerts(alerts, target, compact = false) {
     target.innerHTML = '<div class="empty">No alerts available for this scope.</div>';
     return;
   }
-  const rows = alerts.map((item) => `<tr>
+  const rows = (compact ? alerts.slice(0, 6) : alerts).map((item) => `<tr>
     <td>${escapeHtml(item.state)}</td>
     <td>${escapeHtml(item.lga)}</td>
     <td>${escapeHtml(item.month || '')}</td>
@@ -66,7 +66,7 @@ function renderAlerts(alerts, target, compact = false) {
     <td>${item.mean_risk == null ? '—' : Number(item.mean_risk).toFixed(3)}</td>
     <td class="resistance ${item.pyrethroid_resistance_flag ? 'yes' : 'no'}">${item.pyrethroid_resistance_flag ? 'Flagged' : 'No'}</td>
   </tr>`).join('');
-  target.innerHTML = `<table class="table"><thead><tr><th>State</th><th>LGA</th><th>Month</th><th>Tier</th><th>Mean risk</th><th>Resistance</th></tr></thead><tbody>${compact ? rows.slice(0, 6) : rows}</tbody></table>`;
+  target.innerHTML = `<table class="table"><thead><tr><th>State</th><th>LGA</th><th>Month</th><th>Tier</th><th>Mean risk</th><th>Resistance</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 async function loadDashboard() {
