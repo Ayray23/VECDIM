@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { syncPendingRecords, checkBackendHealth } from './src/apiSync.js';
 
 const DRAFT_KEY = '@vecdim/draft-v2';
 const RECORDS_KEY = '@vecdim/records-v1';
@@ -148,6 +149,29 @@ export default function App() {
       } else setDraftLoaded(true);
     })();
     return () => { if (watchRef.current) watchRef.current.remove(); if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, []);
+
+  const runBackendSync = async () => {
+    try {
+      await checkBackendHealth();
+      const result = await syncPendingRecords();
+      if (result.attempted > 0) {
+        const refreshed = await AsyncStorage.getItem(RECORDS_KEY);
+        if (refreshed) setRecords(JSON.parse(refreshed));
+        setSaveStatus(result.rejected > 0 ? 'Some records were rejected by the backend' : 'Records synced to backend');
+      }
+    } catch {
+      setSaveStatus('Offline · records remain safely on this device');
+    }
+  };
+
+  useEffect(() => {
+    runBackendSync();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') runBackendSync();
+    });
+    const timer = setInterval(runBackendSync, 30000);
+    return () => { subscription.remove(); clearInterval(timer); };
   }, []);
 
   const persistDraft = async (nextRecord) => { await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ ...nextRecord, status: 'draft' })); setSaveStatus('Draft saved automatically on this device'); };
