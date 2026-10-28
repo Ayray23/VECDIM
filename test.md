@@ -534,3 +534,20 @@ node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDI
 **Conclusion:** The isolated missing-value fix resolves the observed parity discrepancy. Literal CSV missing markers are now recognized consistently with the supplied R reference for this candidate pack. All 1,525 rows matched across all rule cells. This confirms the tested validation/parity scope only; it does not establish that alert-output loading, live database/PostGIS migrations, authorization, offline/reconnect sync, or demo recording have been completed.
 
 **Git command note:** The attempted command `git pull --ff only` failed because the option was typed with a space. Correct syntax is `git pull --ff-only`. The branch was newly created with tracking set to `origin/fix/missing-core-na-parity`; the subsequent test commands ran successfully on that branch. No merge was performed.
+
+
+## Candidate-pack output inventory — 2026-10-28
+
+**Branch context:** Local verification performed by the user from `C:\Users\Owner\VECDIM`, using candidate pack `$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack`.
+
+**Validation recheck:** PASS — the user reran the validation unit tests, validation self-check, and official candidate-pack parity test. Results remained `actual_flagged=222`, `actual_cleaned=1303`, `reference_flagged=222`, `reference_cleaned=1303`, and `mismatched_rule_cells=0`.
+
+**Output inventory result:** The supplied pack contains:
+- `outputs/cleaned_data.csv` (206,194 bytes)
+- `outputs/flagged_records.csv` (18,162 bytes)
+- `outputs/validation_flags_all.csv` (126,311 bytes)
+- `outputs/validation_summary.csv` (307 bytes)
+
+The recursive search returned no file named `alerts.csv`. The pack also includes `R/02_descriptive_analysis.R`, `R/03_rf_model_and_alerts.R`, and `R/run_all.R`.
+
+**Status:** Inventory check PASS. Alert-output verification remains pending: inspect the pipeline's output filenames, run the supplied full R pipeline if appropriate, and compare generated alert counts/tiers with backend/dashboard expectations. Do not assume that `flagged_records.csv` is the same thing as the model-generated alerts output.
