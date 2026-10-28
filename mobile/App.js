@@ -4,9 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { syncPendingRecords } from './src/api.js';
 
 const DRAFT_KEY = '@vecdim/draft-v2';
 const RECORDS_KEY = '@vecdim/records-v1';
+const DEVICE_ID_KEY = '@vecdim/device-id-v1';
 
 const LGA_REFERENCE = {
   Lagos: { Ikorodu: [6.62, 3.51], Alimosho: [6.6, 3.25], Epe: [6.58, 3.98], Badagry: [6.43, 2.88], 'Eti-Osa': [6.45, 3.6] },
@@ -130,7 +132,7 @@ function SectionHeading({ number, title, detail }) {
 
 export default function App() {
   const [record, setRecord] = useState(makeRecord); const [records, setRecords] = useState([]); const [draftLoaded, setDraftLoaded] = useState(false); const [dirty, setDirty] = useState(false);
-  const [gpsStatus, setGpsStatus] = useState('Location not captured'); const [gpsBusy, setGpsBusy] = useState(false); const [saveStatus, setSaveStatus] = useState('Draft saves automatically'); const [showDatePicker, setShowDatePicker] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState('Location not captured'); const [gpsBusy, setGpsBusy] = useState(false); const [saveStatus, setSaveStatus] = useState('Draft saves automatically'); const [showDatePicker, setShowDatePicker] = useState(false); const [syncing, setSyncing] = useState(false);
   const watchRef = useRef(null); const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -211,6 +213,49 @@ export default function App() {
     } catch { setGpsStatus('Could not capture location. Try again in an open area.'); } finally { setGpsBusy(false); }
   };
 
+  const syncRecords = async (recordsToSync = records) => {
+    if (syncing) return;
+    const pending = recordsToSync.filter((item) => item.status === 'pending_sync');
+    if (!pending.length) {
+      setSaveStatus('No pending records to sync');
+      Alert.alert('Already up to date', 'There are no pending records on this device.');
+      return;
+    }
+
+    setSyncing(true);
+    setSaveStatus(`Syncing ${pending.length} record(s)…`);
+    try {
+      let deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
+      if (!deviceId) {
+        deviceId = Crypto.randomUUID();
+        await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
+      }
+
+      const result = await syncPendingRecords(recordsToSync, deviceId);
+      const outcomeById = new Map((result.results || []).map((item) => [item.id, item]));
+      const updated = recordsToSync.map((item) => {
+        const outcome = outcomeById.get(item.recordId);
+        if (!outcome) return item;
+        if (outcome.status === 'synced' || outcome.status === 'already_exists') {
+          return { ...item, status: 'synced', syncedAt: new Date().toISOString(), syncError: null };
+        }
+        return { ...item, status: 'rejected', syncError: outcome.message || outcome.reason || 'Backend rejected this record.' };
+      });
+
+      await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(updated));
+      setRecords(updated);
+      const accepted = result.accepted ?? updated.filter((item) => item.status === 'synced').length;
+      const rejected = result.rejected ?? 0;
+      setSaveStatus(rejected ? `Sync finished · ${accepted} accepted · ${rejected} rejected` : `Sync complete · ${accepted} record(s) uploaded`);
+      Alert.alert('Sync complete', rejected ? `${accepted} record(s) uploaded; ${rejected} record(s) need review.` : `${accepted} record(s) are now synced with the backend.`);
+    } catch (error) {
+      setSaveStatus('Sync unavailable · records remain safely stored on this device');
+      Alert.alert('Could not sync', `${error.message || 'Check your backend URL and network connection.'}\n\nYour records remain saved on this device.`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const saveRecord = async () => {
     const flags = validateRecord(record, records); const blocks = flags.filter((flag) => flag.severity === 'Block');
     if (blocks.length) { Alert.alert('Cannot save yet', blocks.map((flag) => `• ${flag.message}`).join('\n\n')); return; }
@@ -248,7 +293,7 @@ export default function App() {
 
     <View style={styles.formSection}><SectionHeading number="04" title="Saved offline" detail="Records stay on this device until a later sync stage uploads them." />{records.length ? records.map((item) => <View key={item.recordId} style={styles.savedRecord}><View style={{ flex: 1 }}><Text style={styles.savedId}>{item.recordId}</Text><Text style={styles.savedMeta}>{item.state} · {item.lga} · {item.collectionDate}</Text></View><Text style={styles.savedStatus}>{item.status === 'pending_sync' ? 'PENDING SYNC' : item.status.toUpperCase()}</Text></View>) : <Text style={styles.emptyText}>No saved field records yet.</Text>}</View>
 
-    <View style={styles.footer}><Text style={styles.saveStatus}>{saveStatus}</Text><Pressable style={styles.primaryButton} onPress={saveRecord}><Text style={styles.buttonText}>Save field record</Text><Text style={styles.buttonArrow}>→</Text></Pressable><Pressable style={styles.resetButton} onPress={discardDraft}><Text style={styles.resetText}>Discard this draft</Text></Pressable><Pressable style={styles.secondaryButton} onPress={resetForNewRecord}><Text style={styles.secondaryText}>Start a new blank record</Text></Pressable></View>
+    <View style={styles.footer}><Text style={styles.saveStatus}>{saveStatus}</Text><Pressable style={[styles.secondaryButton, syncing && { opacity: 0.5 }]} disabled={syncing} onPress={() => syncRecords()}><Text style={styles.secondaryText}>{syncing ? "Syncing records…" : "Sync pending records"}</Text></Pressable><Pressable style={styles.primaryButton} onPress={saveRecord}><Text style={styles.buttonText}>Save field record</Text><Text style={styles.buttonArrow}>→</Text></Pressable><Pressable style={styles.resetButton} onPress={discardDraft}><Text style={styles.resetText}>Discard this draft</Text></Pressable><Pressable style={styles.secondaryButton} onPress={resetForNewRecord}><Text style={styles.secondaryText}>Start a new blank record</Text></Pressable></View>
   </ScrollView></SafeAreaView>;
 }
 
