@@ -43,7 +43,10 @@ export function haversineKm(lat1, lon1, lat2, lon2) {
 }
 
 function missing(value) {
-  return value === null || value === undefined || value === '';
+  if (value === null || value === undefined) return true;
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim();
+  return normalized === '' || /^(?:NA|N\/A|NULL)$/i.test(normalized);
 }
 
 function asNumber(value) {
