@@ -16,12 +16,14 @@ Stages 1–4 provide the mobile foundation, validation, safe synchronization, an
 
 ## Run the mobile app
 
-From `mobile/`:
+Start the backend first (see "Run the dashboard" below), then from `mobile/`:
 
 ```bash
 npm install
 npx expo start
 ```
+
+The app finds the backend automatically: it uses the computer running `expo start`, so a phone must be on the same Wi-Fi, and the computer's firewall must allow port 4000. To point the app somewhere else (for example a deployed server), set `EXPO_PUBLIC_API_URL` before starting, such as `EXPO_PUBLIC_API_URL=https://your-server npx expo start`. If an upload fails, the message under "Saved records" shows the address the app tried.
 
 ## Run backend tests
 

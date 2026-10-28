@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applySyncResults, chunk, isPending, statusLabel, syncPending, toSyncPayload } from './sync.js';
+import { applySyncResults, chunk, isPending, resolveApiUrl, statusLabel, syncPending, toSyncPayload } from './sync.js';
 
 const NOW = new Date('2026-10-28T10:00:00Z');
 
@@ -212,4 +212,18 @@ test('a network failure during the one-by-one fallback stops the run', async () 
   assert.equal(result.updated[a.recordId].status, 'synced');
   assert.equal(result.updated[b.recordId], undefined);
   assert.match(result.error, /Could not reach the server/);
+});
+
+test('resolveApiUrl prefers the explicit setting, then the dev computer on the LAN, then the emulator alias', () => {
+  assert.equal(resolveApiUrl({ envUrl: 'https://api.example.org/', hostUri: '192.168.1.20:8081' }), 'https://api.example.org');
+  assert.equal(resolveApiUrl({ hostUri: '192.168.1.20:8081' }), 'http://192.168.1.20:4000');
+  assert.equal(resolveApiUrl({ hostUri: 'exp://10.0.0.7:8081' }), 'http://10.0.0.7:4000');
+  assert.equal(resolveApiUrl({ envUrl: '   ', hostUri: '172.16.4.9:19000/--/x' }), 'http://172.16.4.9:4000');
+});
+
+test('resolveApiUrl falls back to the emulator alias when the dev server address is not a usable LAN address', () => {
+  for (const hostUri of [undefined, '', 'localhost:8081', '127.0.0.1:8081', '0.0.0.0:8081', 'abc-123.exp.direct:80']) {
+    assert.equal(resolveApiUrl({ hostUri }), 'http://10.0.2.2:4000', String(hostUri));
+  }
+  assert.equal(resolveApiUrl(), 'http://10.0.2.2:4000');
 });

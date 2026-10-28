@@ -4,6 +4,24 @@
 // checked against the real server schema (see backend/src/mobile-contract.test.js).
 // The app owns storage and UI; this module owns the wire format and result handling.
 
+export const API_PORT = 4000;
+const EMULATOR_HOST_URL = `http://10.0.2.2:${API_PORT}`; // Android emulator's alias for the computer running the backend
+
+/**
+ * Where the backend lives.
+ * 1. EXPO_PUBLIC_API_URL, if set, always wins.
+ * 2. Otherwise, the computer running `expo start`: its LAN address is already in the dev
+ *    server's hostUri (for example "192.168.1.20:8081"), so a phone on the same Wi-Fi reaches
+ *    the backend without any configuration.
+ * 3. Otherwise (localhost or tunnel mode, no usable address) the Android emulator alias.
+ */
+export function resolveApiUrl({ envUrl, hostUri } = {}) {
+  if (typeof envUrl === 'string' && envUrl.trim()) return envUrl.trim().replace(/\/+$/, '');
+  const host = typeof hostUri === 'string' ? hostUri.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').split(/[/:?#]/)[0] : '';
+  const isLanAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) && !host.startsWith('127.') && host !== '0.0.0.0';
+  return isLanAddress ? `http://${host}:${API_PORT}` : EMULATOR_HOST_URL;
+}
+
 export const SYNC_BATCH_SIZE = 100; // the server accepts 1-100 records per request
 export const SYNC_TIMEOUT_MS = 20000;
 

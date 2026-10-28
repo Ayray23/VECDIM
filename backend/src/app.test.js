@@ -72,3 +72,15 @@ test('oversized request bodies return a JSON 413', async () => {
     assert.equal((await response.json()).error, 'payload_too_large');
   });
 });
+
+test('the database pool has an error listener so a dropped connection cannot crash the API', async () => {
+  const { pool } = await import('./db.js');
+  assert.ok(pool.listenerCount('error') >= 1);
+  const original = console.error;
+  console.error = () => {};
+  try {
+    assert.doesNotThrow(() => pool.emit('error', new Error('terminating connection due to administrator command')));
+  } finally {
+    console.error = original;
+  }
+});

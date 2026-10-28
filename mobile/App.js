@@ -4,14 +4,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { isPending, statusLabel, syncPending } from './sync';
+import Constants from 'expo-constants';
+import { isPending, resolveApiUrl, statusLabel, syncPending } from './sync';
 
 const DRAFT_KEY = '@vecdim/draft-v2';
 const RECORDS_KEY = '@vecdim/records-v1';
 const DEVICE_ID_KEY = '@vecdim/device-id';
-// Backend base URL. Set EXPO_PUBLIC_API_URL for a real device or deployment; the default
-// is the Android emulator's alias for the host machine's localhost.
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:4000';
+// Backend base URL: EXPO_PUBLIC_API_URL if set, otherwise the computer running `expo start`
+// (same Wi-Fi), otherwise the Android emulator's alias for the host machine.
+const API_URL = resolveApiUrl({ envUrl: process.env.EXPO_PUBLIC_API_URL, hostUri: Constants.expoConfig?.hostUri });
 
 const LGA_REFERENCE = {
   Lagos: { Ikorodu: [6.62, 3.51], Alimosho: [6.6, 3.25], Epe: [6.58, 3.98], Badagry: [6.43, 2.88], 'Eti-Osa': [6.45, 3.6] },
@@ -158,7 +159,7 @@ export default function App() {
         commitRecords(recordsRef.current.map((item) => result.updated[item.recordId] ?? item));
         await persistRecords();
       }
-      if (result.error) setSyncMessage(result.error);
+      if (result.error) setSyncMessage(`${result.error} (${API_URL})`);
       else if (result.rejected || result.deferred) setSyncMessage(`${result.synced} synced · ${result.rejected} need fixing${result.deferred ? ` · ${result.deferred} will retry` : ''}`);
       else setSyncMessage(`${result.synced} synced just now`);
     } catch { setSyncMessage('Sync failed. Records stay on this device.'); } finally { syncingRef.current = false; setSyncing(false); }
