@@ -84,7 +84,7 @@ export async function syncFieldRecords(query, records, { deviceId } = {}) {
           sync_status
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
-          $13, ST_SetSRID(ST_MakePoint($12,$11),4326)::geography,
+          $13, ST_SetSRID(ST_MakePoint($12,$11),4326),
           $14,$15,$16,$17,'synced'
         ) ON CONFLICT (id) DO UPDATE SET
           state = EXCLUDED.state,
