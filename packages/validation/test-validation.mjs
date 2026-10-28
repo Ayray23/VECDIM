@@ -67,5 +67,13 @@ assert.ok(serverRules({ ...enriched, ndvi: null }).includes('missing_core'));
 assert.ok(serverRules({ ...enriched, rainfall_mm: '' }).includes('missing_core'));
 assert.ok(serverRules({ ...enriched, itn_use_pct: undefined }).includes('missing_core'));
 assert.ok(serverRules({ ...enriched, species: '' }).includes('missing_core'));
+// CSV missing-value markers (including surrounding whitespace and case variants) must match R NA semantics.
+assert.ok(serverRules({ ...enriched, ndvi: 'NA' }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, rainfall_mm: 'NA' }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, itn_use_pct: 'NA' }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, species: 'NA' }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, ndvi: ' n/a ' }).includes('missing_core'));
+assert.ok(serverRules({ ...enriched, rainfall_mm: 'NULL' }).includes('missing_core'));
+assert.ok(rules({ ...base, species: 'NA' }).includes('missing_core'));
 
 console.log('validation unit tests: PASS');
