@@ -568,3 +568,15 @@ Alert tier distribution across 647 LGA-month groups: ALERT 0.133, WARNING 0.209,
 User confirmed generated files and sizes: `alerts.csv` 34,689 bytes; `risk_predictions.csv` 112,450 bytes; `model_metrics.csv` 413 bytes; `rf_variable_importance.csv` 420 bytes; `cleaned_data.csv` 206,194 bytes; `validation_summary.csv` 307 bytes. All listed outputs existed after the run.
 
 **Still pending:** validate row counts and allowed tier values in `alerts.csv` and `risk_predictions.csv`; inspect exact output columns and determine the transformation/import path to the backend `alerts` table, because R output columns (`ym`, `n`, `mean_p_high`, `alert`, `pyrethroid_resistance_flag`) differ from API query columns (`month`, `n_records`, `mean_risk`, `alert_tier`, `resistance_flag`). Pipeline execution success does not by itself prove backend/dashboard integration. No merge performed.
+
+
+## Generated alert and prediction CSV content checks — 2026-10-28
+
+Branch: `fix/missing-core-na-parity`. Candidate-pack outputs checked by user in PowerShell after successful full R pipeline run.
+
+**Result: PASS for file existence, row counts, expected tier values, and required alert fields.**
+- `alerts.csv`: 647 rows; columns `state`, `lga`, `ym`, `n`, `mean_p_high`, `mean_pyrethroid_mort`, `alert`, `pyrethroid_resistance_flag`. Tier counts: WATCH 426, ALERT 86, WARNING 135. Required alert fields `state`, `lga`, `ym`, and `alert` had zero blank rows in the user's check.
+- `risk_predictions.csv`: 1,303 rows; columns `record_id`, `state`, `lga`, `ward`, `latitude`, `longitude`, `collection_date`, `p_high`, `tier`. Tier counts: WATCH 859, WARNING 246, ALERT 198.
+- Row counts align with pipeline summary: 647 LGA-month groups and 1,303 cleaned records.
+
+**Integration status: NOT YET VERIFIED.** The R alert output field names differ from the backend API query fields (`ym` vs `month`, `n` vs `n_records`, `mean_p_high` vs `mean_risk`, `alert` vs `alert_tier`, `pyrethroid_resistance_flag` vs `resistance_flag`). Need inspect backend schema/migrations and any loader/ETL step before deciding whether a mapping is missing. These checks confirm CSV shape and key-field completeness, not database/dashboard integration or scientific validity of the model.
