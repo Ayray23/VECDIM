@@ -7,7 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
 import { isPending, resolveApiUrl, statusLabel, syncPending } from './sync';
 
-import { asFiniteNumber, getLgaDistance, today, validateRecord, LGA_REFERENCE, SPECIES, INSECTICIDES, STATES } from './validation';
+import { asFiniteNumber, getLgaDistance, today, validateRecord, LGA_REFERENCE, SPECIES, INSECTICIDES, STATES } from '../packages/validation/mobile.js';
 const DRAFT_KEY = '@vecdim/draft-v2';
 const RECORDS_KEY = '@vecdim/records-v1';
 const DEVICE_ID_KEY = '@vecdim/device-id';
