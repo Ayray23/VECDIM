@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { validateRecord } from '../mobile/validation.js';
+import { validateRecord } from '../packages/validation/mobile.js';
 import { parseCsv } from './parity-utils.mjs';
 
 const root = process.argv[2];
