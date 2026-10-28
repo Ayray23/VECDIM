@@ -12,7 +12,6 @@ const rows = parseCsv(fs.readFileSync(inputPath, 'utf8'));
 const reference = parseCsv(fs.readFileSync(referencePath, 'utf8'));
 if (rows.length !== 1525 || reference.length !== 1525) { console.error(`Expected 1,525 input and reference rows; got input=${rows.length}, reference=${reference.length}.`); process.exit(1); }
 const referenceById = new Map(reference.map((row) => [row.record_id, row]));
-const inputById = new Map(rows.map((row) => [row.record_id, row]));
 const inputIds = new Set(rows.map((row) => row.record_id));
 if (inputIds.size !== rows.length || referenceById.size !== reference.length || rows.some((row) => !referenceById.has(row.record_id))) { console.error('Input and reference records do not have unique, matching record_id values.'); process.exit(1); }
 const number = (value) => value === '' || value == null || /^NA$/i.test(value) ? '' : String(value);
