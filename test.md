@@ -580,3 +580,17 @@ Branch: `fix/missing-core-na-parity`. Candidate-pack outputs checked by user in 
 - Row counts align with pipeline summary: 647 LGA-month groups and 1,303 cleaned records.
 
 **Integration status: NOT YET VERIFIED.** The R alert output field names differ from the backend API query fields (`ym` vs `month`, `n` vs `n_records`, `mean_p_high` vs `mean_risk`, `alert` vs `alert_tier`, `pyrethroid_resistance_flag` vs `resistance_flag`). Need inspect backend schema/migrations and any loader/ETL step before deciding whether a mapping is missing. These checks confirm CSV shape and key-field completeness, not database/dashboard integration or scientific validity of the model.
+
+
+## Generated alert and prediction CSV content checks — 2026-10-28
+
+Candidate pack: `VECDIM_Candidate_Pack`; user ran read-only PowerShell checks after successful full R pipeline execution.
+
+**Result: PASS for file structure, row counts, tier values, and required alert fields.**
+
+- `outputs/alerts.csv`: 647 rows. Columns: `state`, `lga`, `ym`, `n`, `mean_p_high`, `mean_pyrethroid_mort`, `alert`, `pyrethroid_resistance_flag`. Tier counts: WATCH 426, ALERT 86, WARNING 135. Required fields `state`, `lga`, `ym`, `alert` had zero blank rows in the user's check.
+- `outputs/risk_predictions.csv`: 1,303 rows. Columns: `record_id`, `state`, `lga`, `ward`, `latitude`, `longitude`, `collection_date`, `p_high`, `tier`. Tier counts: WATCH 859, WARNING 246, ALERT 198.
+- `alerts.csv` missing-required-field check returned `Count: 0`.
+- Alert tier counts sum to 647; prediction tier counts sum to 1,303.
+
+**Integration remains unverified:** R output names differ from backend SQL/API names (`ym` vs `month`, `n` vs `n_records`, `mean_p_high` vs `mean_risk`, `alert` vs `alert_tier`, and `pyrethroid_resistance_flag` vs `resistance_flag`). Need to inspect backend schema and any import/transform code before claiming end-to-end alert integration. This check did not validate numeric ranges for `p_high`/`mean_p_high`, duplicates, date format, or live dashboard consumption.
