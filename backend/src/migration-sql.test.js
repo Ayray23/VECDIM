@@ -15,7 +15,7 @@ async function monthPattern(file) {
   return new RegExp(match[1]);
 }
 
-for (const file of ['005_align_alerts_to_api_contract.sql', '007_fix_alerts_month_check.sql']) {
+for (const file of ['005_align_alerts_to_api_contract.sql', '008_fix_alerts_month_check.sql']) {
   test(`${file} month check accepts YYYY-MM and rejects other formats`, async () => {
     const pattern = await monthPattern(file);
     assert.equal(pattern.test('2026-10'), true);
@@ -26,3 +26,14 @@ for (const file of ['005_align_alerts_to_api_contract.sql', '007_fix_alerts_mont
     assert.equal(pattern.test('October'), false);
   });
 }
+
+// The location column is geometry(Point, 4326) (migration 007_use_postgis_geometry).
+// Writing a geography value into it fails at runtime, so no write path may cast to it.
+test('no source file writes the location as geography', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const srcDir = fileURLToPath(new URL('./', import.meta.url));
+  for (const file of (await readdir(srcDir)).filter((name) => name.endsWith('.js') && !name.endsWith('.test.js'))) {
+    const source = await readFile(`${srcDir}${file}`, 'utf8');
+    assert.equal(/::\s*geography/i.test(source), false, `${file} casts to geography`);
+  }
+});
