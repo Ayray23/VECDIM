@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { validateRecord } from './validation.js';
+import { validateRecord } from '../packages/validation/mobile.js';
 
 const validRecord = (overrides = {}) => ({
   recordId: 'record-b',
