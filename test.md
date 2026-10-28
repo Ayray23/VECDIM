@@ -594,3 +594,28 @@ Candidate pack: `VECDIM_Candidate_Pack`; user ran read-only PowerShell checks af
 - Alert tier counts sum to 647; prediction tier counts sum to 1,303.
 
 **Integration remains unverified:** R output names differ from backend SQL/API names (`ym` vs `month`, `n` vs `n_records`, `mean_p_high` vs `mean_risk`, `alert` vs `alert_tier`, and `pyrethroid_resistance_flag` vs `resistance_flag`). Need to inspect backend schema and any import/transform code before claiming end-to-end alert integration. This check did not validate numeric ranges for `p_high`/`mean_p_high`, duplicates, date format, or live dashboard consumption.
+
+
+## Mobile validator extraction and device parity — 2026-10-28
+
+Working branch: `test/device-validation-parity` (isolated from `fix/missing-core-na-parity`).
+
+Changes prepared:
+- Extracted the actual mobile `validateRecord()` implementation to `packages/validation/mobile.js`; the app imports that module.
+- Added deterministic `referenceDate` support for tests while preserving the device-clock default during app use.
+- Added `mobile/validation.test.mjs` and `npm --prefix mobile run test:validation`.
+- Added `scripts/device-validation-parity.mjs` to compare applicable mobile rules against the 1,525-row candidate pack, aligned by `record_id`.
+- Device `missing_core` is reported separately from R `missing_core`, because R includes server-enriched NDVI/rainfall while the device's form contract requires its own fields.
+- Mobile duplicate detection now follows the reference contract: only a matching record with a lexicographically earlier `record_id` causes a warning; rejected records are ignored.
+
+**Execution status: NOT YET RUN on this branch.** No pass/fail result is claimed for the newly added mobile focused tests or 1,525-row device parity until the commands below have been executed locally.
+
+Run from the repository root in PowerShell:
+
+```powershell
+npm --prefix mobile run test:validation
+$pack = "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack"
+node .\scripts\device-validation-parity.mjs "$pack"
+```
+
+The device parity script compares `GPS_outside_nigeria`, `GPS_zero_zero`, `GPS_state_mismatch`, `GPS_far_from_lga`, `n_dead_gt_n_exposed`, `future_date`, and `duplicate`. GPS accuracy is covered separately because the reference dataset has no accuracy column. The output reports device-required-field `missing_core` and R/server-enrichment `missing_core` counts separately.
