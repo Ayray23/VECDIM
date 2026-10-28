@@ -98,4 +98,4 @@ function validateRecord(record, existingRecords = [], options = {}) {
 }
 
 
-export { asFiniteNumber, getLgaDistance, haversineKm, today, validateRecord };
+export { asFiniteNumber, getLgaDistance, haversineKm, today, validateRecord, LGA_REFERENCE, STATE_BOUNDS, SPECIES, INSECTICIDES, STATES };
