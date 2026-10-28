@@ -378,3 +378,98 @@ This repo is not just “app code”; it is a staged engineering project.
 If you read only one sentence from this whole repository, it is this:
 
 VECDIM is a field-surveillance prototype that captures mosquito data offline on mobile devices, validates it with a shared rule system, stores it in PostGIS-backed PostgreSQL, and verifies correctness against a reference implementation through parity tests.
+
+---
+
+# Test execution log
+
+## 2026-10-28 — Repository and validation checks
+
+### Environment and repository state
+
+- Repository: `Ayray23/VECDIM`
+- Branch tested: `feature/server-validation-and-mobile-sync`
+- HEAD at time of test: `0cd9e0c` — `fixed the safe area warning`
+- Git status: PASS — working tree clean; branch was up to date with origin at the time of inspection.
+- Backend runtime requirement in `backend/package.json`: Node.js `>=20`.
+- No root-level `package.json` was present in the checked-out repository.
+
+### Test case: backend automated test suite
+
+**Command**
+```powershell
+cd C:\Users\Owner\VECDIM\backend
+npm test
+```
+
+**Result: PASS**
+
+- Tests: 63
+- Passed: 63
+- Failed: 0
+- Cancelled: 0
+- Skipped: 0
+- Todo: 0
+- Duration reported by Node: approximately 7.5 seconds.
+
+**Coverage observed in the test output**
+- Alert and dashboard role/state access restrictions.
+- Missing or invalid identity headers and role mismatch handling.
+- CSV field preservation and escaping.
+- Health endpoint success and database failure behavior.
+- Malformed JSON and oversized request handling.
+- Database pool error handling when a connection is dropped.
+- Migration ordering, applied-migration skipping, and rollback behavior.
+- Shared mobile/server validation compatibility, including LGA payloads and mortality rounding.
+- Record create/read/list behavior, pagination, state scoping, and idempotent retries.
+- Sync batch limits, partial failures, rejected-record resubmission, and validation outcomes.
+- Duplicate detection, future-date handling in the Lagos calendar, and persisted validation results.
+
+**Non-failing warning observed**
+Node emitted `[MODULE_TYPELESS_PACKAGE_JSON]` for `mobile/sync.js`: module syntax was detected, but the nearest `mobile/package.json` does not declare `"type": "module"`. The test suite still passed. This is recorded as a warning, not a test failure; no code was changed during this test.
+
+### Test case: independent validation self-check
+
+**Command**
+```powershell
+cd C:\Users\Owner\VECDIM
+node .\scripts\validation-self-check.mjs
+```
+
+**Result: PASS**
+
+Output: `VECDIM validation self-check: PASS`
+
+Coverage reported: mortality boundaries, GPS accuracy boundaries, GPS/state/LGA checks, dead/exposed counts, future dates, duplicates, and server enrichment ranges.
+
+### Test case: validation package unit tests
+
+**Command**
+```powershell
+node .\packages\validation\test-validation.mjs
+```
+
+**Result: PASS**
+
+Output: `validation unit tests: PASS`
+
+### Test case: locate official parity pack
+
+**Result: FOUND LOCALLY; OFFICIAL PARITY NOT YET RUN**
+
+The local file search found:
+- `C:\Users\Owner\Downloads\VECDIM_Candidate_Pack.zip` (81,198 bytes)
+- Other ZIP candidates were also found, but have not been identified as the official assessment pack.
+
+The candidate ZIP contents, required R runtime/dependencies, and official comparison results have not yet been verified. Do not mark official parity as PASS until `scripts/parity-test.mjs` completes successfully against the supplied candidate pack.
+
+### Outstanding checks
+
+1. Inspect the contents of `VECDIM_Candidate_Pack.zip` and confirm it contains the expected 1,525-row input and supplied R reference script.
+2. Confirm the required R runtime and packages are available.
+3. Run the official parity runner and record the actual flagged/cleaned totals and rule-by-rule differences. Expected acceptance totals documented in `docs/PARITY_RESULT.md`: 222 flagged and 1,303 cleaned.
+4. Import and verify the supplied `cleaned_data.csv` and `alerts.csv` outputs in the intended test environment, including counts, alert tiers, duplicates, and dashboard totals.
+5. Record the results of database/PostGIS migration checks, authorization checks, and the live offline/reconnect sync evidence.
+6. Record the short demo once captured.
+
+**Change control:** These checks were run for verification only. No application code was modified as part of the test run described above.
