@@ -473,3 +473,17 @@ The candidate ZIP contents, required R runtime/dependencies, and official compar
 6. Record the short demo once captured.
 
 **Change control:** These checks were run for verification only. No application code was modified as part of the test run described above.
+
+
+## Official candidate-pack parity test — 2026-10-28
+
+**Command:**
+```powershell
+node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack"
+```
+
+**Environment / setup:** Rscript 4.6.1 available; candidate pack extracted to a separate test folder; input CSV contains 1,525 rows and the supplied R validation script and pipeline exist.
+
+**Result: FAIL — investigate before release.** The supplied R validation stage completed and generated the reference flags. Reference totals matched the expected 222 flagged / 1,303 clean rows. JavaScript produced 107 flagged / 1,418 clean rows, with 115 differing rule cells (allowed maximum: 5). All 115 differences are in `missing_core`: reference expected true, JavaScript returned false. Each of the other ten rule-level flagged counts matched the reference counts. First examples included VD00051, VD01469, VD00983, and VD01378.
+
+**Interpretation / next action:** Inspect missing-value representation in the candidate CSV, the R reference rule, and the JavaScript `missing_core` predicate. Do not change validation behavior until the cause is confirmed. Re-run the parity test after any fix and record the new result here.
