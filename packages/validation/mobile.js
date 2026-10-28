@@ -92,7 +92,7 @@ function validateRecord(record, existingRecords = [], options = {}) {
   if (!record.urban) add('missing_core', 'Block', 'urban', 'Choose Urban or Rural.');
   if (typeof record.irsCovered !== 'boolean') add('missing_core', 'Block', 'irsCovered', 'Choose whether IRS covered the area.');
 
-  const duplicate = existingRecords.find((item) => item.recordId !== record.recordId && item.status !== 'rejected' && item.ward === record.ward && item.collectionDate === record.collectionDate && item.species === record.species && item.insecticide === record.insecticide && Number(item.exposed) === exposed && Number(item.dead) === dead);
+  const duplicate = existingRecords.some((item) => item.recordId !== record.recordId && item.status !== 'rejected' && String(item.recordId) < String(record.recordId) && item.ward === record.ward && item.collectionDate === record.collectionDate && item.species === record.species && item.insecticide === record.insecticide && Number(item.exposed) === exposed && Number(item.dead) === dead);
   if (duplicate) add('duplicate', 'Warn', 'recordId', 'A matching field record already exists on this device. Check that this is intentional.');
   return flags;
 }
