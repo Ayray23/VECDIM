@@ -551,3 +551,20 @@ node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDI
 The recursive search returned no file named `alerts.csv`. The pack also includes `R/02_descriptive_analysis.R`, `R/03_rf_model_and_alerts.R`, and `R/run_all.R`.
 
 **Status:** Inventory check PASS. Alert-output verification remains pending: inspect the pipeline's output filenames, run the supplied full R pipeline if appropriate, and compare generated alert counts/tiers with backend/dashboard expectations. Do not assume that `flagged_records.csv` is the same thing as the model-generated alerts output.
+
+
+## Full R pipeline execution — 2026-10-28
+
+Branch: `fix/missing-core-na-parity`. Test environment: Windows PowerShell; candidate pack at `C:\Users\Owner\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack`; Rscript version 4.6.1.
+
+**Result: PASS.** User ran `Rscript .\R\run_all.R data/vecdim_dummy_entomology_data.csv outputs` from the candidate pack root. Console ended with `Pipeline complete. Outputs in: ...\outputs`; immediately captured `$LASTEXITCODE` was `0`.
+
+Validation output: 1,525 raw rows, 222 flagged, 1,303 clean rows. Unique `ANY RULE` count was 222. Per-rule counts: GPS outside Nigeria 12; GPS zero-zero 8; GPS/state mismatch 30; GPS far from LGA 30; dead greater than exposed 18; positivity out of range 10; future date 10; implausible temperature 8; implausible rainfall 6; duplicate 25; missing core 115.
+
+Model metrics printed by pipeline (mean AUC): covariates only/random 5-fold 0.820 (SD 0.039); covariates only/LGA-grouped 5-fold 0.817 (SD 0.066); covariates plus latitude/longitude/random 5-fold 0.885 (SD 0.035); covariates plus latitude/longitude/LGA-grouped 5-fold 0.802 (SD 0.072).
+
+Alert tier distribution across 647 LGA-month groups: ALERT 0.133, WARNING 0.209, WATCH 0.658. These are rounded shares, not exact group counts.
+
+User confirmed generated files and sizes: `alerts.csv` 34,689 bytes; `risk_predictions.csv` 112,450 bytes; `model_metrics.csv` 413 bytes; `rf_variable_importance.csv` 420 bytes; `cleaned_data.csv` 206,194 bytes; `validation_summary.csv` 307 bytes. All listed outputs existed after the run.
+
+**Still pending:** validate row counts and allowed tier values in `alerts.csv` and `risk_predictions.csv`; inspect exact output columns and determine the transformation/import path to the backend `alerts` table, because R output columns (`ym`, `n`, `mean_p_high`, `alert`, `pyrethroid_resistance_flag`) differ from API query columns (`month`, `n_records`, `mean_risk`, `alert_tier`, `resistance_flag`). Pipeline execution success does not by itself prove backend/dashboard integration. No merge performed.
