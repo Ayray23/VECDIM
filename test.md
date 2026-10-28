@@ -509,3 +509,28 @@ node .\packages\validation\test-validation.mjs
 node .\scripts\validation-self-check.mjs
 node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack"
 ```
+
+
+## Missing-value parity fix verification — 2026-10-28
+
+**Branch:** `fix/missing-core-na-parity`
+
+**Commands executed from the repository root (PowerShell):**
+
+```powershell
+node .\packages\validation\test-validation.mjs
+node .\scripts\validation-self-check.mjs
+node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack"
+```
+
+**Results: PASS — all three checks passed.**
+
+1. **Validation unit tests:** PASS — output: `validation unit tests: PASS`.
+2. **Validation self-check:** PASS — output: `VECDIM validation self-check: PASS`. Coverage reported: mortality boundaries, GPS accuracy boundaries, GPS/state/LGA checks, dead/exposed, future dates, duplicates, and server enrichment ranges.
+3. **Official candidate-pack parity:** PASS — output reported `rows=1525`, `alignment=record_id`, `actual_flagged=222`, `actual_cleaned=1303`, `reference_flagged=222`, `reference_cleaned=1303`, and `mismatched_rule_cells=0`. The allowed maximum is 5 differing rule cells.
+
+**Rule-level counts reported by parity runner:** GPS outside Nigeria 12; GPS zero-zero 8; GPS state mismatch 30; GPS far from LGA 30; dead greater than exposed 18; positivity out of range 10; future date 10; temperature implausible 8; rainfall implausible 6; duplicate 25; missing core 115.
+
+**Conclusion:** The isolated missing-value fix resolves the observed parity discrepancy. Literal CSV missing markers are now recognized consistently with the supplied R reference for this candidate pack. All 1,525 rows matched across all rule cells. This confirms the tested validation/parity scope only; it does not establish that alert-output loading, live database/PostGIS migrations, authorization, offline/reconnect sync, or demo recording have been completed.
+
+**Git command note:** The attempted command `git pull --ff only` failed because the option was typed with a space. Correct syntax is `git pull --ff-only`. The branch was newly created with tracking set to `origin/fix/missing-core-na-parity`; the subsequent test commands ran successfully on that branch. No merge was performed.
