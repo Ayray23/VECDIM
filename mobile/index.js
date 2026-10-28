@@ -61,10 +61,11 @@ async function syncPendingRecords() {
   const payload = pending.map(toApiRecord);
   if (payload.some((record) => !record.id || !Number.isFinite(record.exposedCount) || !Number.isFinite(record.deadCount) || !Number.isFinite(record.mortalityPct) || !Number.isFinite(record.gpsLatitude) || !Number.isFinite(record.gpsLongitude) || !Number.isFinite(record.gpsAccuracyM))) return;
 
+  const deviceId = await getDeviceId();
   const response = await fetch(`${API_BASE_URL}/sync`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Device-Id': await getDeviceId() },
-    body: JSON.stringify({ records: payload })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: payload, deviceId })
   });
 
   if (!response.ok) return;
