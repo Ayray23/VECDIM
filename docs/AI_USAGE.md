@@ -1,15 +1,13 @@
-# AI Usage
+# AI Usage Disclosure
 
-AI coding assistance is permitted by the assessment instructions and is being used transparently during development.
+## AI tool used
 
-## Stage 1 usage
+- **ChatGPT (OpenAI):** used as a coding and development assistant through conversation.
 
-AI assistance was used for:
-- translating the supplied requirements into an initial implementation plan;
-- drafting the first React Native project files;
-- drafting the first field-observation form and local draft mechanism;
-- explaining implementation decisions and identifying later verification needs.
+## AI Usage Disclosure
 
-All generated implementation is reviewed by the developer, tested where the local environment permits, and documented in the audit trail. The developer is responsible for the submitted code and must be able to explain its behaviour and design decisions.
+AI tools, including ChatGPT, were used selectively during the development of VECDIM to assist with specific tasks such as debugging, selected implementation challenges, test design, and technical documentation.
 
-This document will be updated if the scope of AI assistance changes during later stages.
+The project’s development, technical decisions, review, and verification remained my responsibility. AI-generated suggestions were reviewed and tested where applicable.
+
+I take responsibility for understanding the submitted code, explaining the implementation, and identifying any functionality that has not yet been fully verified.

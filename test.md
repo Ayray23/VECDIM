@@ -509,3 +509,88 @@ node .\packages\validation\test-validation.mjs
 node .\scripts\validation-self-check.mjs
 node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack"
 ```
+
+
+## Missing-value parity fix verification — 2026-10-28
+
+**Branch:** `fix/missing-core-na-parity`
+
+**Commands executed from the repository root (PowerShell):**
+
+```powershell
+node .\packages\validation\test-validation.mjs
+node .\scripts\validation-self-check.mjs
+node .\scripts\parity-test.mjs "$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack"
+```
+
+**Results: PASS — all three checks passed.**
+
+1. **Validation unit tests:** PASS — output: `validation unit tests: PASS`.
+2. **Validation self-check:** PASS — output: `VECDIM validation self-check: PASS`. Coverage reported: mortality boundaries, GPS accuracy boundaries, GPS/state/LGA checks, dead/exposed, future dates, duplicates, and server enrichment ranges.
+3. **Official candidate-pack parity:** PASS — output reported `rows=1525`, `alignment=record_id`, `actual_flagged=222`, `actual_cleaned=1303`, `reference_flagged=222`, `reference_cleaned=1303`, and `mismatched_rule_cells=0`. The allowed maximum is 5 differing rule cells.
+
+**Rule-level counts reported by parity runner:** GPS outside Nigeria 12; GPS zero-zero 8; GPS state mismatch 30; GPS far from LGA 30; dead greater than exposed 18; positivity out of range 10; future date 10; temperature implausible 8; rainfall implausible 6; duplicate 25; missing core 115.
+
+**Conclusion:** The isolated missing-value fix resolves the observed parity discrepancy. Literal CSV missing markers are now recognized consistently with the supplied R reference for this candidate pack. All 1,525 rows matched across all rule cells. This confirms the tested validation/parity scope only; it does not establish that alert-output loading, live database/PostGIS migrations, authorization, offline/reconnect sync, or demo recording have been completed.
+
+**Git command note:** The attempted command `git pull --ff only` failed because the option was typed with a space. Correct syntax is `git pull --ff-only`. The branch was newly created with tracking set to `origin/fix/missing-core-na-parity`; the subsequent test commands ran successfully on that branch. No merge was performed.
+
+
+## Candidate-pack output inventory — 2026-10-28
+
+**Branch context:** Local verification performed by the user from `C:\Users\Owner\VECDIM`, using candidate pack `$HOME\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack`.
+
+**Validation recheck:** PASS — the user reran the validation unit tests, validation self-check, and official candidate-pack parity test. Results remained `actual_flagged=222`, `actual_cleaned=1303`, `reference_flagged=222`, `reference_cleaned=1303`, and `mismatched_rule_cells=0`.
+
+**Output inventory result:** The supplied pack contains:
+- `outputs/cleaned_data.csv` (206,194 bytes)
+- `outputs/flagged_records.csv` (18,162 bytes)
+- `outputs/validation_flags_all.csv` (126,311 bytes)
+- `outputs/validation_summary.csv` (307 bytes)
+
+The recursive search returned no file named `alerts.csv`. The pack also includes `R/02_descriptive_analysis.R`, `R/03_rf_model_and_alerts.R`, and `R/run_all.R`.
+
+**Status:** Inventory check PASS. Alert-output verification remains pending: inspect the pipeline's output filenames, run the supplied full R pipeline if appropriate, and compare generated alert counts/tiers with backend/dashboard expectations. Do not assume that `flagged_records.csv` is the same thing as the model-generated alerts output.
+
+
+## Full R pipeline execution — 2026-10-28
+
+Branch: `fix/missing-core-na-parity`. Test environment: Windows PowerShell; candidate pack at `C:\Users\Owner\Downloads\VECDIM_Candidate_Pack_test\VECDIM_Candidate_Pack`; Rscript version 4.6.1.
+
+**Result: PASS.** User ran `Rscript .\R\run_all.R data/vecdim_dummy_entomology_data.csv outputs` from the candidate pack root. Console ended with `Pipeline complete. Outputs in: ...\outputs`; immediately captured `$LASTEXITCODE` was `0`.
+
+Validation output: 1,525 raw rows, 222 flagged, 1,303 clean rows. Unique `ANY RULE` count was 222. Per-rule counts: GPS outside Nigeria 12; GPS zero-zero 8; GPS/state mismatch 30; GPS far from LGA 30; dead greater than exposed 18; positivity out of range 10; future date 10; implausible temperature 8; implausible rainfall 6; duplicate 25; missing core 115.
+
+Model metrics printed by pipeline (mean AUC): covariates only/random 5-fold 0.820 (SD 0.039); covariates only/LGA-grouped 5-fold 0.817 (SD 0.066); covariates plus latitude/longitude/random 5-fold 0.885 (SD 0.035); covariates plus latitude/longitude/LGA-grouped 5-fold 0.802 (SD 0.072).
+
+Alert tier distribution across 647 LGA-month groups: ALERT 0.133, WARNING 0.209, WATCH 0.658. These are rounded shares, not exact group counts.
+
+User confirmed generated files and sizes: `alerts.csv` 34,689 bytes; `risk_predictions.csv` 112,450 bytes; `model_metrics.csv` 413 bytes; `rf_variable_importance.csv` 420 bytes; `cleaned_data.csv` 206,194 bytes; `validation_summary.csv` 307 bytes. All listed outputs existed after the run.
+
+**Still pending:** validate row counts and allowed tier values in `alerts.csv` and `risk_predictions.csv`; inspect exact output columns and determine the transformation/import path to the backend `alerts` table, because R output columns (`ym`, `n`, `mean_p_high`, `alert`, `pyrethroid_resistance_flag`) differ from API query columns (`month`, `n_records`, `mean_risk`, `alert_tier`, `resistance_flag`). Pipeline execution success does not by itself prove backend/dashboard integration. No merge performed.
+
+
+## Generated alert and prediction CSV content checks — 2026-10-28
+
+Branch: `fix/missing-core-na-parity`. Candidate-pack outputs checked by user in PowerShell after successful full R pipeline run.
+
+**Result: PASS for file existence, row counts, expected tier values, and required alert fields.**
+- `alerts.csv`: 647 rows; columns `state`, `lga`, `ym`, `n`, `mean_p_high`, `mean_pyrethroid_mort`, `alert`, `pyrethroid_resistance_flag`. Tier counts: WATCH 426, ALERT 86, WARNING 135. Required alert fields `state`, `lga`, `ym`, and `alert` had zero blank rows in the user's check.
+- `risk_predictions.csv`: 1,303 rows; columns `record_id`, `state`, `lga`, `ward`, `latitude`, `longitude`, `collection_date`, `p_high`, `tier`. Tier counts: WATCH 859, WARNING 246, ALERT 198.
+- Row counts align with pipeline summary: 647 LGA-month groups and 1,303 cleaned records.
+
+**Integration status: NOT YET VERIFIED.** The R alert output field names differ from the backend API query fields (`ym` vs `month`, `n` vs `n_records`, `mean_p_high` vs `mean_risk`, `alert` vs `alert_tier`, `pyrethroid_resistance_flag` vs `resistance_flag`). Need inspect backend schema/migrations and any loader/ETL step before deciding whether a mapping is missing. These checks confirm CSV shape and key-field completeness, not database/dashboard integration or scientific validity of the model.
+
+
+## Generated alert and prediction CSV content checks — 2026-10-28
+
+Candidate pack: `VECDIM_Candidate_Pack`; user ran read-only PowerShell checks after successful full R pipeline execution.
+
+**Result: PASS for file structure, row counts, tier values, and required alert fields.**
+
+- `outputs/alerts.csv`: 647 rows. Columns: `state`, `lga`, `ym`, `n`, `mean_p_high`, `mean_pyrethroid_mort`, `alert`, `pyrethroid_resistance_flag`. Tier counts: WATCH 426, ALERT 86, WARNING 135. Required fields `state`, `lga`, `ym`, `alert` had zero blank rows in the user's check.
+- `outputs/risk_predictions.csv`: 1,303 rows. Columns: `record_id`, `state`, `lga`, `ward`, `latitude`, `longitude`, `collection_date`, `p_high`, `tier`. Tier counts: WATCH 859, WARNING 246, ALERT 198.
+- `alerts.csv` missing-required-field check returned `Count: 0`.
+- Alert tier counts sum to 647; prediction tier counts sum to 1,303.
+
+**Integration remains unverified:** R output names differ from backend SQL/API names (`ym` vs `month`, `n` vs `n_records`, `mean_p_high` vs `mean_risk`, `alert` vs `alert_tier`, and `pyrethroid_resistance_flag` vs `resistance_flag`). Need to inspect backend schema and any import/transform code before claiming end-to-end alert integration. This check did not validate numeric ranges for `p_high`/`mean_p_high`, duplicates, date format, or live dashboard consumption.
